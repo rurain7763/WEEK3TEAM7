@@ -14,6 +14,7 @@
 #include "FEditorViewportClient.h"
 #include "Camera.h"
 #include "Console.h"
+#include "FLogManager.h"
 
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
@@ -70,7 +71,7 @@ void FSceneManager::UpdateGUI(const FGuiReference& guiReference)
 	updatePropertyWindowGUI(guiReference);
 	updateObjectListPanelGUI(guiReference);
 
-	ConsoleWindow::GetInstance().Draw(mPanelWidth);
+	ConsoleWindow::Get().Process(mPanelWidth);
 }
 
 void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
@@ -518,7 +519,7 @@ void FSceneManager::LoadScene(
 	}
 	catch (const std::exception& e)
 	{
-		UE_LOG_F("Failed to load scene {}: file not found.", sceneName);
+		UE_LOG_WARN("Failed to load scene {}: file not found.", sceneName);
 		return;
 	}
 
@@ -549,17 +550,17 @@ void  FSceneManager::SetSelectedActor(AActor* actor)
 {
 	if (actor == nullptr)
 	{
-		UE_LOG_F("SetSelectedActor: Attempted to set selected actor to nullptr.");
+		UE_LOG_WARN("SetSelectedActor: Attempted to set selected actor to nullptr.");
 		return;
 	}
 
 	if (actor == mSelectedActor)
 	{
-		UE_LOG_F("SetSelectedActor: Actor with UUID {} is already selected.", actor->UUID);
+		UE_LOG_WARN("SetSelectedActor: Actor with UUID {} is already selected.", actor->UUID);
 		return; // No change
 	}
 
-	UE_LOG_F("SetSelectedActor: Actor with UUID {} is now selected.", actor->UUID);
+	UE_LOG_WARN("SetSelectedActor: Actor with UUID {} is now selected.", actor->UUID);
 	mSelectedActor = actor;
 }
 

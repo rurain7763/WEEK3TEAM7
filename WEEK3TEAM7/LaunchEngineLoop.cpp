@@ -60,10 +60,17 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 	ImGui::CreateContext();
 	ImGui_ImplWin32_Init((void*)hWnd);
 	ImGui_ImplDX11_Init(mGraphicsManager->GetRenderer()->Device, mGraphicsManager->GetRenderer()->DeviceContext);
+	auto& IO = ImGui::GetIO();
+	IO.Fonts->AddFontFromFileTTF(
+		"C:/Windows/Fonts/malgun.ttf",
+		18.0f,
+		nullptr,
+		IO.Fonts->GetGlyphRangesKorean()
+	);
 
 	/* Console Window */
-	ConsoleWindow& console = ConsoleWindow::GetInstance();
-	console.Init("Jungle Console Window", clientWidth);
+	ConsoleWindow& console = ConsoleWindow::Get();
+	console.Init(clientWidth);
 
 	mGraphicsManager->CreateBuffer(EPrimitive::EP_Cube, Cube_vertices, sizeof(Cube_vertices));
 	mGraphicsManager->CreateBuffer(EPrimitive::EP_Sphere, Sphere_vertices, sizeof(Sphere_vertices));
@@ -100,7 +107,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	FrameTimer->StartFrame();
 	float deltaTime = FrameTimer->GetDeltaTime();
-	ConsoleWindow& console = ConsoleWindow::GetInstance();
+	ConsoleWindow& console = ConsoleWindow::Get();
 
 	//Input Threads
 	{

@@ -3,6 +3,7 @@
 #include "Renderer.h"
 #include "Camera.h"
 #include "Console.h"
+#include "FLogManager.h"
 
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
 static constexpr uint32 LINE_VERTEX_CAPACITY = 8192;
