@@ -14,6 +14,7 @@
 #include "FEditorViewportClient.h"
 #include "Camera.h"
 #include "Console.h"
+#include "NativeFileDialog.h"
 
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_dx11.h"
@@ -127,26 +128,87 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 		mGuiInputField.SpawnCount = spawnCount;
 	}
 
-	/* Scene Control */
+	/*Scene Control*/
 	ImGui::SeparatorText("Scene Control");
 
-	ImGui::InputText("Scene Name", mGuiInputField.SceneName, IM_ARRAYSIZE(mGuiInputField.SceneName));
+	const std::filesystem::path sceneDirectory =
+		std::filesystem::absolute(std::filesystem::path(kDefaultAssetsPath) / std::filesystem::path(kSceneDataDir));
+
+	void* ownerWindow = ImGui::GetMainViewport()->PlatformHandleRaw;
+
 	if (ImGui::Button("New scene"))
 	{
-		// TODO: add clear depth buffer function in renderer
-		//guiReference.GraphicsManager->GetRenderer()->ClearDepthBuffer();
 		guiReference.ViewportClient->Reset();
 		NewScene();
 	}
+
+	ImGui::SameLine();
+
 	if (ImGui::Button("Save scene"))
 	{
-		SaveScene(mGuiInputField.SceneName, *guiReference.FileManager);
+		try
+		{
+			// 저장 대화상자의 초기 폴더가 반드시 존재하도록 한다.
+			//std::filesystem::create_directories(sceneDirectory);
+
+			const std::optional<std::filesystem::path> selectedPath =
+				FNativeFileDialog::SaveScene(
+					ownerWindow,
+					sceneDirectory);
+
+			// 취소 버튼을 누른 경우에는 아무 작업도 하지 않는다.
+			if (selectedPath.has_value())
+			{
+				SaveScene(selectedPath.value(), *guiReference.FileManager);
+
+				UE_LOG_F("Scene saved: {}",selectedPath->string());
+			}
+		}
+		catch (const std::exception& e)
+		{
+			UE_LOG_F(
+				"Failed to save scene: {}",
+				e.what());
+		}
 	}
+
+	ImGui::SameLine();
+
 	if (ImGui::Button("Load scene"))
 	{
-		guiReference.ViewportClient->Reset();
-		LoadScene(mGuiInputField.SceneName, *guiReference.FileManager);
+		try
+		{
+			//std::filesystem::create_directories(sceneDirectory);
+
+			const std::optional<std::filesystem::path> selectedPath =
+				FNativeFileDialog::OpenScene(
+					ownerWindow,
+					sceneDirectory);
+
+			// 취소한 경우에는 현재 씬과 카메라 상태를 건드리지 않는다.
+			if (selectedPath.has_value())
+			{
+				LoadScene(
+					selectedPath.value(),
+					*guiReference.FileManager);
+
+				// 파일 로드가 실행된 뒤에만 카메라를 초기화한다.
+				guiReference.ViewportClient->Reset();
+
+				UE_LOG_F(
+					"Scene loaded: {}",
+					selectedPath->string());
+			}
+		}
+		catch (const std::exception& e)
+		{
+			UE_LOG_F(
+				"Failed to load scene: {}",
+				e.what());
+		}
 	}
+
+
 	/* Camera Control */
 	ImGui::SeparatorText("Camera Control");
 
@@ -458,90 +520,112 @@ void FSceneManager::DeleteScene()
 }
 
 void FSceneManager::SaveScene(
-	std::string_view sceneName,
+	const std::filesystem::path& scenePath,
 	const FFileManager& fileManager)
 {
-	FString fileName = kSceneDataDir;
-	fileName += FString("/");
-	fileName += sceneName;
-	fileName += kSceneDataSuffix;
+	if (mCurrentWorld == nullptr)
+	{
+		throw std::runtime_error(
+			"Cannot save scene because current world is null.");
+	}
 
-	// Read the current scene data to read the Version
 	uint32 version = 0;
 
+	// 기존 파일이 있으면 Version을 유지한다.
 	try
 	{
-		FString readSceneString = fileManager.ReadFileToString(fileName);
-		json::JSON readSceneJson = json::JSON::Load(readSceneString);
+		const FString previousSceneString =
+			fileManager.ReadFileToString(scenePath);
 
-		if (!readSceneJson.hasKey("Version") || readSceneJson.at("Version").JSONType() != json::JSON::Class::Integral)
+		const json::JSON previousSceneJson =
+			json::JSON::Load(previousSceneString);
+
+		if (previousSceneJson.hasKey("Version") &&
+			previousSceneJson.at("Version").JSONType() ==
+			json::JSON::Class::Integral)
 		{
-			version = 0;
-		}
-		else
-		{
-			version = readSceneJson.at("Version").ToInt();
+			version =
+				previousSceneJson.at("Version").ToInt();
 		}
 	}
-	catch (const std::exception& e)
+	catch (const std::exception&)
 	{
-		// If the file does not exist or cannot be read, we can assume it's a new scene and set version to 0
+		// 새로 저장하는 파일이면 Version 0부터 시작한다.
 		version = 0;
 	}
 
-	json::JSON writeSceneJson = json::JSON::Make(json::JSON::Class::Object);
-	json::JSON worldJson = json::JSON::Make(json::JSON::Class::Object);
+	json::JSON sceneJson =
+		json::JSON::Make(json::JSON::Class::Object);
+
+	json::JSON worldJson =
+		json::JSON::Make(json::JSON::Class::Object);
+
 	mCurrentWorld->SerializeClass(worldJson);
 
-	writeSceneJson["Version"] = version;
-	writeSceneJson["NextUUID"] = UEngineStatics::GetNextUUID();
-	writeSceneJson["World"] = worldJson;
+	sceneJson["Version"] = version;
+	sceneJson["NextUUID"] = UEngineStatics::GetNextUUID();
+	sceneJson["World"] = worldJson;
 
-	FString jsonString = FString(writeSceneJson.dump(1, "  "));
-	fileManager.WriteStringToFile(fileName, jsonString);
+	const FString jsonString(
+		sceneJson.dump(1, "  "));
+
+	fileManager.WriteStringToFile(
+		scenePath,
+		jsonString);
 }
 
 void FSceneManager::LoadScene(
-	std::string_view sceneName,
+	const std::filesystem::path& scenePath,
 	const FFileManager& fileManager)
 {
-	FString fileName = kSceneDataDir;
-	fileName += FString("/");
-	fileName += sceneName;
-	fileName += kSceneDataSuffix;
+	const FString jsonString =
+		fileManager.ReadFileToString(scenePath);
 
-	FString jsonString;
+	const json::JSON sceneJson =
+		json::JSON::Load(jsonString);
 
-	try
+	if (!sceneJson.hasKey("NextUUID") ||
+		sceneJson.at("NextUUID").JSONType() !=
+		json::JSON::Class::Integral)
 	{
-		jsonString = fileManager.ReadFileToString(fileName);
+		throw std::runtime_error(
+			std::format(
+				"Scene file '{}' does not contain a valid NextUUID.",
+				scenePath.string()));
 	}
-	catch (const std::exception& e)
+
+	if (!sceneJson.hasKey("World") ||
+		sceneJson.at("World").JSONType() !=
+		json::JSON::Class::Object)
 	{
-		UE_LOG_F("Failed to load scene {}: file not found.", sceneName);
-		return;
+		throw std::runtime_error(
+			std::format(
+				"Scene file '{}' does not contain valid World data.",
+				scenePath.string()));
 	}
 
-	json::JSON readSceneJson = json::JSON::Load(jsonString);
+	const uint32 nextUUID =
+		sceneJson.at("NextUUID").ToInt();
 
-	if (!readSceneJson.hasKey("NextUUID") || readSceneJson.at("NextUUID").JSONType() != json::JSON::Class::Integral)
+	const json::JSON worldJson =
+		sceneJson.at("World");
+
+	UWorld* newWorld =
+		FObjectFactory::LoadObject<UWorld>(worldJson);
+
+	if (newWorld == nullptr)
 	{
-		throw std::runtime_error(std::format("Scene file {} does not contain a valid NextUUID field.", fileName));
+		throw std::runtime_error(
+			std::format(
+				"Failed to deserialize world from '{}'.",
+				scenePath.string()));
 	}
-	uint32 nextUUID = readSceneJson.at("NextUUID").ToInt();
-	json::JSON worldJson = readSceneJson.at("World");
 
-	UWorld* newWorld = FObjectFactory::LoadObject<UWorld>(worldJson);
-	if (!newWorld)
-	{
-		throw std::runtime_error(std::format("Failed to load world from scene: {}", sceneName));
-	}
-	UEngineStatics::SetNextUUID(nextUUID);
-
-	// Replace the contents of mCurrentWorld with newWorld
+	// 새 월드 생성이 성공한 경우에만 기존 월드를 교체한다.
 	delete mCurrentWorld;
 	mCurrentWorld = newWorld;
 
+	UEngineStatics::SetNextUUID(nextUUID);
 	ResetSelectedActor();
 }
 

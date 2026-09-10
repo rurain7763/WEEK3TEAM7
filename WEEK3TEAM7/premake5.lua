@@ -29,7 +29,8 @@ project "WEEK3TEAM7"
         "dwmapi",
         "gdi32",
         "imm32",
-        "user32"
+        "user32",
+        "comdlg32"
     }
 
     filter "configurations:Debug"
