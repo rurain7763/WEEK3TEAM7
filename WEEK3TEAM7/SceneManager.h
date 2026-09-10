@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include <string_view>
-
+#include <filesystem>
 #include "SceneData.h"
 #include "TArray.h"
 #include "RenderInfo.h"
@@ -54,8 +54,9 @@ public:
 	void NewScene();
 	void DeleteScene();
 
-	void SaveScene(std::string_view sceneName, const FFileManager& fileManager);
-	void LoadScene(std::string_view sceneName, const FFileManager& fileManager);
+	// 파일 탐색기용 오버로드
+	void SaveScene(const std::filesystem::path& scenePath, const FFileManager& fileManager);
+	void LoadScene(const std::filesystem::path& scenePath, const FFileManager& fileManager);
 
 	UWorld* GetCurrentWorld() const { return mCurrentWorld; }
 
