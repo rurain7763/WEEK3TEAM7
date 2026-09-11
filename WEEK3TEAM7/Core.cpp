@@ -343,3 +343,8 @@ bool FString::operator== (const FString& str) const
 {
 	return Equals(str);
 }
+
+const char* FString::c_str() const noexcept
+{
+	return mData->c_str();
+}

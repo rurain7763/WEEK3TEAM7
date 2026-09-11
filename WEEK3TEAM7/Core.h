@@ -128,7 +128,7 @@ public:
 
 	bool operator== (const FString& str) const;
 
-
+	const char* c_str() const noexcept;
 private:
 	std::unique_ptr<std::string> mData;
 };
