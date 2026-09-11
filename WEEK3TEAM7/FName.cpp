@@ -126,8 +126,9 @@ struct FNamePool
 
 static FNamePool& GetNamePool()
 {
-	static FNamePool NamePool;
-	return NamePool;
+	//NamePool이 가장 마지막까지 살아있게 하기위해 동적할당 후 누수를 유도(프로그램 종료니까 안전)
+	static FNamePool* NamePool = new FNamePool();
+	return *NamePool;
 }
 
 FName::FName()
