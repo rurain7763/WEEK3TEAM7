@@ -1,6 +1,8 @@
 #include "FName.h"
 #include "TArray.h"
 #include "TMap.h"
+#include <format>
+#include <limits>
 
 struct FNamePool
 {
@@ -131,32 +133,93 @@ static FNamePool& GetNamePool()
 FName::FName()
 	: DisplayIndex(-1)
 	, ComparisonIndex(-1)
+	, Number(0)
 {
 }
 
 FName::FName(const char* pStr)
-	: FName(FString(pStr))
 {
+	FString ParsedName;
+	ParseName(FString(pStr), ParsedName, Number);
+
+	FString ComparisonName = ParsedName.ToLower();
+
+	FNamePool& NamePool = GetNamePool();
+	ComparisonIndex = NamePool.StoreComparisionName(ComparisonName);
+	DisplayIndex = NamePool.StoreDisplayName(ComparisonIndex, ParsedName);
 }
 
 FName::FName(const FString& Name)
 {
-	FNamePool& NamePool = GetNamePool();
+	FString ParsedName;
+	ParseName(Name, ParsedName, Number);
 
-	FString ComparisonName = Name.ToLower();
+	FString ComparisonName = ParsedName.ToLower();
 	
+	FNamePool& NamePool = GetNamePool();
 	ComparisonIndex = NamePool.StoreComparisionName(ComparisonName);
-	DisplayIndex = NamePool.StoreDisplayName(ComparisonIndex, Name);
+	DisplayIndex = NamePool.StoreDisplayName(ComparisonIndex, ParsedName);
 }
 
 int32 FName::Compare(const FName& Other) const
 {
-	return ComparisonIndex - Other.ComparisonIndex;
+	if (ComparisonIndex != Other.ComparisonIndex)
+	{
+		return ComparisonIndex - Other.ComparisonIndex;
+	}
+	else
+	{
+		return Number - Other.Number;
+	}
 }
 
 bool FName::operator==(const FName& Other) const
 {
-	return ComparisonIndex == Other.ComparisonIndex;
+	return ComparisonIndex == Other.ComparisonIndex && Number == Other.Number;
+}
+
+void FName::ParseName(const FString& InName, FString& OutName, uint32& OutNumber) const
+{
+    OutName = InName;
+    OutNumber = 0;
+
+    const char* Text = InName.CStr();
+    const int32 Length = InName.Len();
+
+    int32 NumberStart = Length;
+    while (NumberStart > 0 && std::isdigit(Text[NumberStart - 1]))
+    {
+        --NumberStart;
+    }
+
+    if (NumberStart == Length)
+    {
+        return;
+    }
+
+	if (Length - NumberStart != 1 && Text[NumberStart] == '0')
+	{
+		return;
+	}
+
+	FString NumberStr = InName.Mid(NumberStart, Length - NumberStart);
+
+	uint32 ParsedNumber = 0;
+	for (int32 i = NumberStart; i < Length; ++i)
+	{
+		uint32 Digit = static_cast<uint32>(Text[i] - '0');
+		if (ParsedNumber > ((UINT32_MAX - 1) - Digit) / 10)
+		{
+			OutName = InName;
+			OutNumber = 0;
+			return;
+		}
+
+		ParsedNumber = ParsedNumber * 10 + Digit;
+	}
+
+    OutName = InName.Left(NumberStart);
+    OutNumber = ParsedNumber + 1;
 }
 
 FString FName::ToString() const
@@ -171,5 +234,5 @@ FString FName::ToString() const
 	const FNamePool::FNameEntry& Entry = NamePool.NameEntries[ComparisonIndex];
 	const FNamePool::FNameBlock& DisplayBlock = Entry.DisplayBlocks[DisplayIndex];
 
-	return FString(&NamePool.NameStream[DisplayBlock.StartIndex]);
+	return std::format("{}{}", &NamePool.NameStream[DisplayBlock.StartIndex], Number > 0 ? std::to_string(Number - 1) : "");
 }

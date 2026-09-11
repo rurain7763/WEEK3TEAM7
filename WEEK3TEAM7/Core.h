@@ -32,6 +32,7 @@ struct FString
 {
 public:
 	FString();
+	FString(const std::string& str);
 	FString(std::string_view str);
 	FString(const char* str);
 
@@ -128,6 +129,9 @@ public:
 
 	bool operator== (const FString& str) const;
 
+	const char& operator[](int32 index) const;
+	char& operator[](int32 index);
+
 	const char* c_str() const noexcept;
 private:
 	std::unique_ptr<std::string> mData;
@@ -161,4 +165,3 @@ struct std::formatter<FString, char> : std::formatter<std::string_view, char>
 		#define FORCEINLINE inline __attribute__((always_inline))
 	#endif
 #endif
-

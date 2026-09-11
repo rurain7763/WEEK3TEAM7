@@ -5,6 +5,11 @@ FString::FString()
 {
 }
 
+FString::FString(const std::string& str)
+	: mData(std::make_unique<std::string>(str))
+{
+}
+
 FString::FString(std::string_view str)
 	: mData(std::make_unique<std::string>(str))
 
@@ -342,6 +347,20 @@ FString& FString::operator+=(const FString& str)
 bool FString::operator== (const FString& str) const
 {
 	return Equals(str);
+}
+
+const char& FString::operator[](int32 index) const
+{
+	if (index < 0 || index >= static_cast<int32>(mData->size()))
+		throw std::out_of_range("Index out of range");
+	return (*mData)[static_cast<size_t>(index)];
+}
+
+char& FString::operator[](int32 index)
+{
+	if (index < 0 || index >= static_cast<int32>(mData->size()))
+		throw std::out_of_range("Index out of range");
+	return (*mData)[static_cast<size_t>(index)];
 }
 
 const char* FString::c_str() const noexcept
