@@ -1,5 +1,40 @@
 ﻿#pragma once
+
 #include "MathUtility.h"
+
+struct FVector2
+{
+	float X;
+	float Y;
+
+	FVector2() : X(0), Y(0) {}
+	FVector2(float InX, float InY) : X(InX), Y(InY) {}
+
+	float LengthSquared() const { return X * X + Y * Y; }
+	float Length() const { return FMath::Sqrt(LengthSquared()); }
+	void Normalize()
+	{
+		const float Size = Length();
+		if (Size > SMALL_NUMBER) { X /= Size; Y /= Size; }
+	}
+
+	FVector2 operator+(const FVector2& Other) const { return { X + Other.X, Y + Other.Y }; }
+	FVector2 operator-(const FVector2& Other) const { return { X - Other.X, Y - Other.Y }; }
+	FVector2 operator*(float Scalar) const { return { X * Scalar, Y * Scalar }; }
+	FVector2& operator/=(float Scalar) { X /= Scalar; Y /= Scalar; return *this; }
+
+	static float LengthSquared(const FVector2& A, const FVector2& B) 
+	{
+		float dx = A.X - B.X;
+		float dy = A.Y - B.Y;
+		return dx * dx + dy * dy;
+	}
+
+	static float Dot(const FVector2& A, const FVector2& B)
+	{
+		return A.X * B.X + A.Y * B.Y;
+	}
+};
 
 typedef struct FVector
 {
@@ -27,6 +62,13 @@ typedef struct FVector
         y -= Others.y;
         z -= Others.z;
     }
+
+	void operator/=(float Scalar)
+	{
+		x /= Scalar;
+		y /= Scalar;
+		z /= Scalar;
+	}
 
 	FVector operator-() const
 	{
@@ -60,6 +102,11 @@ typedef struct FVector
 	{
 		return LengthSquared() < Tolerance;
 	}
+
+	static float LengthSquared(const FVector& A, const FVector& B)
+	{
+		return (A - B).LengthSquared();
+	}
 	
 } FVector3;
 
@@ -78,16 +125,23 @@ inline FVector operator+(const FVector& A, const FVector& B)
 	return FVector(A.x + B.x, A.y + B.y, A.z + B.z);
 }
 
-
 //Vector 4
 typedef struct FVector4
 {
 	float x, y, z, w;
-	FVector4(float _x = 0, float _y = 0, float _z = 0, float _w = 0) : x(_x), y(_y), z(_z), w(_w) {}
+	
+	FVector4() : x(0), y(0), z(0), w(0) {}
+	FVector4(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
+	FVector4(const FVector3& v, float _w) : x(v.x), y(v.y), z(v.z), w(_w) {}
 
 	const FVector4 operator-(const FVector4& Others) const
 	{
 		return FVector4(x - Others.x, y - Others.y, z - Others.z, w - Others.w);
+	}
+
+	FVector4 operator*(float Scalar) const
+	{
+		return FVector4(x * Scalar, y * Scalar, z * Scalar, w * Scalar);
 	}
 
 	void operator+=(const FVector4& Others)
@@ -104,6 +158,14 @@ typedef struct FVector4
 		y -= Others.y;
 		z -= Others.z;
 		w -= Others.w;
+	}
+
+	void operator*=(float Scalar)
+	{
+		x *= Scalar;
+		y *= Scalar;
+		z *= Scalar;
+		w *= Scalar;
 	}
 
 	//내적

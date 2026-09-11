@@ -14,9 +14,9 @@ FGraphicsManager::FGraphicsManager(HWND hWindow)
 {
 	mRenderer = new URenderer;
 	mRenderer->Create(hWindow);
-	mRenderer->CreateShader();
-	mRenderer->CreateConstantBuffer();
+#if 0
 	mRenderer->CreateLineVertexBuffer(LINE_VERTEX_CAPACITY);
+#endif
 
 	mAspect = mRenderer->ViewportInfo.Width / mRenderer->ViewportInfo.Height;
 }
@@ -28,9 +28,9 @@ FGraphicsManager::~FGraphicsManager()
 		buffer.second.Buffer->Release();
 	}
 
+#if 0
 	mRenderer->ReleaseLineVertexBuffer();
-	mRenderer->ReleaseConstantBuffer();
-	mRenderer->ReleaseShader();
+#endif
 	mRenderer->Release();
 
 	delete mRenderer;
@@ -38,9 +38,6 @@ FGraphicsManager::~FGraphicsManager()
 
 void FGraphicsManager::Prepare(const FCamera* mCamera)
 {
-	mRenderer->Prepare(mbWireFrame);
-	mRenderer->PrepareShader();
-
 	// Cache view and projection matrices for rendering
 	const float nearZ = 0.1f;
 	const float farZ = 100.0f;
@@ -53,7 +50,11 @@ void FGraphicsManager::Prepare(const FCamera* mCamera)
 	FMatrix projection_u = mCamera->GetUnifiedProjectionMatrix(mAspect, mCamera->mFovDegree, d, nearZ, farZ, mProjectionRatio);
 
 	//mViewProjectionMatrix = view * mCamera->GetProjectionMatrix(mAspect, mCamera->mFovDegree, nearZ, farZ);
+	mViewMatrix = view;
+	mProjectionMatrix = projection_u_p;
 	mViewProjectionMatrix = view * projection_u_p;
+
+	mRenderer->Prepare(mbWireFrame, view * projection_u);
 
 	float orthoHeight = mCamera->mOrthoHeight;
 	float orthoWidth = orthoHeight * mAspect;
@@ -94,15 +95,14 @@ void FGraphicsManager::Render(const TArray<FRenderInfo> renderInfos)
 	for (const FRenderInfo& renderInfo : renderInfos)
 	{
 		//mRenderer->UpdateConstant(renderInfo.WorldTransformMatrix, mViewProjectionMatrix, renderInfo.Color);
-		mRenderer->UpdateConstant(renderInfo.WorldTransformMatrix, viewProjection, renderInfo.Color);
-
 		FBuffer* vertexBuffer = mBufferMap.Find(renderInfo.ePrimitive);
 		if (vertexBuffer == nullptr)
 		{
 			UE_LOG("Error: Vertex buffer not found for primitive type.");
 			continue;
 		}
-		mRenderer->RenderPrimitive(vertexBuffer->Buffer, vertexBuffer->SourceNum);
+
+		mRenderer->RenderPrimitive(vertexBuffer->Buffer, vertexBuffer->SourceNum, renderInfo.WorldTransformMatrix);
 	}
 }
 void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const FVector4& color)
@@ -114,6 +114,7 @@ void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const 
 
 void FGraphicsManager::DrawWorldAxis()
 {
+#if 0
 	if (!mbShowWorldAxis) return;
 
 	// far plane이 100이라 그 안쪽으로 잡아야 잘리지 않는다
@@ -149,10 +150,15 @@ void FGraphicsManager::DrawWorldAxis()
 		DrawLine(direction * AXIS_ORIGIN_GAP, direction * AXIS_LENGTH, color);
 		DrawLine(direction * -AXIS_ORIGIN_GAP, direction * -AXIS_LENGTH, dimColor);
 	}
+#else
+	mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 2.f);
+	mRenderer->RenderWorldGrid(mViewUnifiedProjectionMatrix);
+#endif
 }
 
 void FGraphicsManager::FlushLines()
 {
+#if 0
 	if (mLineVertices.Num() == 0) return;
 
 	// 선분 좌표가 이미 월드 공간이라 World는 단위행렬.
@@ -165,11 +171,13 @@ void FGraphicsManager::FlushLines()
 	//{
 	//	mRenderer->UpdateConstant(FMatrix::Identity, mViewOrthogonalProjectionMatrix, FVector4(0, 0, 0, 0));
 	//}
+
 	mRenderer->UpdateConstant(FMatrix::Identity, mViewUnifiedProjectionMatrix, FVector4(0, 0, 0, 0));
 	mRenderer->RenderLines(&mLineVertices[0], mLineVertices.Num());
 
 	// 안 비우면 매 프레임 누적돼 버퍼가 넘친다. 용량은 유지한 채 개수만 0으로
 	mLineVertices.Reset(LINE_VERTEX_CAPACITY);
+#endif
 }
 
 void FGraphicsManager::RenderOverlay(const TArray<FRenderInfo> renderInfos) //깊이버퍼 초기화
@@ -303,7 +311,10 @@ void FGraphicsManager::RenderHighLight(const FRenderInfo& RI)
 	//{
 	//	mRenderer->RenderHighlight(vertexBuffer.Buffer, vertexBuffer.SourceNum, mViewOrthogonalProjectionMatrix, Outline, RI);
 	//}
+
+#if 0
 	mRenderer->RenderHighlight(vertexBuffer.Buffer, vertexBuffer.SourceNum, mViewUnifiedProjectionMatrix, Outline, RI);
+#endif
 }
 
 

@@ -72,7 +72,7 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 	mGraphicsManager->CreateBuffer(EPrimitive::EP_Triangle, Triangle_vertices, sizeof(Triangle_vertices));
 
 	FrameTimer = new FFrameTimer(120);
-	ViewportClient = new FEditorViewportClient(); // Todo: cChange to class
+	ViewportClient = new FEditorViewportClient(*mGraphicsManager->GetRenderer()); // Todo: cChange to class
 
 	const FVector4 NearTint(1.0f, 0.65f, 0.15f, 0.85f); // 주황 = 가까운 쪽
 	const FVector4 FarTint(0.25f, 0.55f, 1.0f, 0.85f); // 파랑 = 먼 쪽
@@ -155,9 +155,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			mGraphicsManager->RenderHighLight(clickedRenderInfo);
 		}
 
-		// Gizmo
-		mGraphicsManager->GizmoPrepare();
-		mGraphicsManager->RenderOverlay(ViewportClient->mGizmo.GetGizmoRenderInfo());
+		ViewportClient->mGizmo.Draw(mSceneManager->GetSelectedActor(), ViewportClient->mCamera.Transform.Location, mGraphicsManager->GetViewProjectionMatrix());
 
 		//ImGui
 		{

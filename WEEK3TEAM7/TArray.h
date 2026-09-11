@@ -42,6 +42,7 @@ public:
 	int32 Max() const;
 	
 	bool IsEmpty() const;
+	void Empty();
 
 	void Reset(int32 newSize);
 	void RemoveAt(uint32 index, int32 count);
@@ -185,6 +186,12 @@ template<typename T>
 inline bool TArray<T>::IsEmpty() const
 {
 	return mDatas.empty();
+}
+
+template <typename T>
+inline void TArray<T>::Empty()
+{
+	mDatas.clear();
 }
 
 template<typename T>

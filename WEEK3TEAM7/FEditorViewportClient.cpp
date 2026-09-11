@@ -1,4 +1,4 @@
-﻿#include "FEditorViewportClient.h"
+#include "FEditorViewportClient.h"
 
 #include "Cube.h"
 #include "Sphere.h"
@@ -11,6 +11,7 @@
 #include "SceneManager.h"
 #include "MathUtility.h"
 #include "GraphicsManager.h"
+#include "Renderer.h"
 
 // 정점 배열이 보이는 스코프라 sizeof 로 개수가 나온다.
 // 포인터로 받으면 배열 크기 정보가 사라지므로 여기서 개수를 같이 넘긴다.
@@ -43,6 +44,12 @@ static bool GetPrimitiveMesh(EPrimitive ePrimitive, const FVertexSimple*& OutVer
 	return false;
 }
 
+FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
+	: mCamera(FTransform({ -2.0f, 1.0f, 1.0f }, { 0, 30, 0 }, { 1, 1, 1 }))
+	, mGizmo(InRenderer)
+{
+}
+
 void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio)
 {
 	bMouseHit = false;
@@ -67,6 +74,7 @@ void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, 
 
 	float NearlistT = FLT_MAX;
 
+#if 0
 	// 드래그 중에는 히트 판정을 하지 않는다.
 	// 빠르게 끌면 커서가 축 캡슐을 벗어나는데, 그때 eAxis가 NONE이 되면 드래그가 끊긴다.
 	if (mGizmo.mDraggingAxis != EGIZMO_AXIS::NONE)
@@ -85,6 +93,7 @@ void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, 
 		// gizmo highlight
 		return;
 	}
+#endif
 
 	// Object 탐색
 	const TArray<FRenderInfo> RenderInfos = World->GetRenderInfos();
@@ -159,7 +168,6 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 		MoveDir.Normalize();
 	}
 
-
 	//Camera Translate
 	if (!io.WantCaptureMouse && Input.MouseWheelDelta != 0.0f)
 	{
@@ -196,9 +204,21 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 
 	mCamera.Transform.Location += mCamera.Velocity * deltaTime;
 
-	if (!io.WantCaptureKeyboard && Input.WasPressed(VK_SPACE))
+	if (!io.WantCaptureKeyboard)
 	{
-		mGizmo.CycleGizmoType();
+		if (Input.WasPressed(VK_SPACE))
+		{
+			mGizmo.SetOperation(static_cast<EGIZMO_TYPE>((static_cast<int32>(mGizmo.GetOperation()) + 1) % 3));
+		}
+
+		if (Input.WasPressed('V'))
+		{
+			mGizmo.SetWorldMode(true);
+		}
+		else if (Input.WasPressed('B'))
+		{
+			mGizmo.SetWorldMode(false);
+		}
 	}
 
 
@@ -212,107 +232,29 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 	//	mClickedActor->BeginFrame();
 	//}
 
-	// 누른 순간에만 선택을 갱신한다. 떼는 것으로는 선택이 풀리지 않는다.
-	if (!ImGui::GetIO().WantCaptureMouse && Input.WasPressed(VK_LBUTTON))
-	{
-		AActor* Hit = nullptr;
+    if (!io.WantCaptureMouse && Input.WasPressed(VK_LBUTTON) && !mGizmo.IsDragging() && !mGizmo.IsMouseOverHandle())
+    {
+        AActor* Hit = nullptr;
+        if (IsMouseHit())
+        {
+            UObject* Object = UObject::GetObjectByInternalIndex(mHoveredRenderInfo.ObejctID.InternalIndex);
+			if (Object && Object->IsA(AActor::GetClass()))
+			{
+				Hit = static_cast<AActor*>(Object);
+			}
+        }
 
-		if (IsMouseHit())
+		if (Hit)
 		{
-			//Gizmo라면 드래그 기준값을 저장
-			if (mGizmo.eAxis != EGIZMO_AXIS::NONE &&
-				sceneManager->IsActorSelected() &&
-				mGizmo.mDraggingAxis == EGIZMO_AXIS::NONE)
-			{
-				mGizmo.BeginDrag(mRayNear, mRayFar, sceneManager->GetSelectedActor()->GetTransform());
-			}
-
-			//Actor라면 액터를 저장
-			else
-			{
-				uint32 clickedObjectIndex = mHoveredRenderInfo.ObejctID.InternalIndex;
-				UObject* ClickedObject = UObject::GetObjectByInternalIndex(clickedObjectIndex);
-				if (ClickedObject && ClickedObject->IsA(AActor::GetClass()))
-				{
-					Hit = static_cast<AActor*>(ClickedObject);
-				}
-			}
+			sceneManager->SetSelectedActor(Hit);
 		}
-
-		//// 다른 것을 눌렀으면 이전 선택 해제. 같은 것이면 유지.
-		//if (mClickedActor && mClickedActor != Hit && !mGizmo.mbHovered)
-		//{
-		//
-		//	mClickedActor->UnPressed();
-		//}
-
-		//Gizmo를 제외한 다른 것을 눌렀을 때, ClickedActor로 갱신
-		if (!mGizmo.mbHovered)
+		else
 		{
-			if (Hit != nullptr)
-			{
-				sceneManager->SetSelectedActor(Hit);
-			}
-			else
-			{
-				sceneManager->ResetSelectedActor();
-			}
+			sceneManager->ResetSelectedActor();
 		}
+    }
 
-		//if (Hit)
-		//{
-		//	Hit->Pressed();      // 선택 유지
-		//	Hit->ClickStart();   // 이번 프레임에 시작했음을 표시
-		//}
-	}
-
-	//Gizmo 축을 클릭한 상태로 마우스 이동이 있으면 해당 축 방향으로 ClickedActor을 변형한다.
-	if (mGizmo.mDraggingAxis != EGIZMO_AXIS::NONE && sceneManager->IsActorSelected())
-	{
-		if (mGizmo.eType == EGIZMO_TYPE::TRANSLATE)
-		{
-			// 절대 좌표가 아니라 시작 시점 대비 변위. 축 직선도 시작 시점에 고정돼 있다
-			FVector newLocation;
-			if (mGizmo.GetDragLocation(mRayNear, mRayFar, newLocation))
-			{
-				sceneManager->GetSelectedActor()->SetLocation(newLocation);
-			}
-		}
-		if (mGizmo.eType == EGIZMO_TYPE::ROTATE)
-		{
-			// 링 평면 위에서 잰 각도. 시작 회전에 누적각을 한 번만 얹는다
-			FRotator newRotation;
-			if (mGizmo.GetDragRotation(mRayNear, mRayFar, newRotation))
-			{
-				//ClickedActor->SetRotation(newRotation);
-				mGizmo.UpdateRotation = newRotation;
-				sceneManager->GetSelectedActor()->SetRotation(newRotation);
-			}
-		}
-		if (mGizmo.eType == EGIZMO_TYPE::SCALE)
-		{
-			FVector newScale;
-			if (mGizmo.GetDragScale(mRayNear, mRayFar, newScale))
-			{
-				sceneManager->GetSelectedActor()->SetScale(newScale);
-			}
-		}
-	}
-
-	if (!ImGui::GetIO().WantCaptureMouse && Input.WasReleased(VK_LBUTTON))
-	{
-		mGizmo.mDraggingAxis = EGIZMO_AXIS::NONE;
-	}
-
-	//변형된 Actor를 바탕으로 Gizmo를 위치시킨다.
-	mGizmo.Update(
-		sceneManager->GetSelectedActor(),
-		mCamera.Transform.Location,
-		mCamera.GetForwardVector(),
-		mCamera.mFovDegree,
-		perspectiveRatio,
-		mCamera.mOrthoDistance);
-
+	mGizmo.Update(sceneManager->GetSelectedActor());
 }
 
 bool FEditorViewportClient::RayIntersectsTriangle(const FVector& Origin, const FVector& Dir, const FVector& V0, const FVector& V1, const FVector& V2, float& OutT, float& OutU, float& OutV)
@@ -435,5 +377,6 @@ void FEditorViewportClient::Reset()
 {
 	mHoveredRenderInfo = FRenderInfo();
 	bMouseHit = false;
+
 	mGizmo.Reset();
 }

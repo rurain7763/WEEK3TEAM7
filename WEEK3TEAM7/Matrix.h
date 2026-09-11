@@ -2,6 +2,7 @@
 #include "Vector.h"
 #include "MathUtility.h"
 #include "Rotator.h"
+#include "Vector.h"
 #include "enum.h"
 
 struct FMatrix { 
@@ -13,7 +14,27 @@ struct FMatrix {
 	// 언리얼 좌표계(X 전방 / Y 우측 / Z 상방)를
 	// DirectX NDC(X 우측 / Y 위 / Z 화면 안쪽)로 바꾸는 축 교환 행렬.
 	static const FMatrix UEToDX;
+
+	FMatrix() : M{} {}
 	
+	FMatrix(float m00, float m01, float m02, float m03,
+		float m10, float m11, float m12, float m13,
+		float m20, float m21, float m22, float m23,
+		float m30, float m31, float m32, float m33)
+	{
+		M[0][0] = m00; M[0][1] = m01; M[0][2] = m02; M[0][3] = m03;
+		M[1][0] = m10; M[1][1] = m11; M[1][2] = m12; M[1][3] = m13;
+		M[2][0] = m20; M[2][1] = m21; M[2][2] = m22; M[2][3] = m23;
+		M[3][0] = m30; M[3][1] = m31; M[3][2] = m32; M[3][3] = m33;
+	}
+
+	FMatrix(const FVector4& M0, const FVector4& M1, const FVector4& M2, const FVector4& M3)
+	{
+		M[0][0] = M0.x; M[0][1] = M0.y; M[0][2] = M0.z; M[0][3] = M0.w;
+		M[1][0] = M1.x; M[1][1] = M1.y; M[1][2] = M1.z; M[1][3] = M1.w;
+		M[2][0] = M2.x; M[2][1] = M2.y; M[2][2] = M2.z; M[2][3] = M2.w;
+		M[3][0] = M3.x; M[3][1] = M3.y; M[3][2] = M3.z; M[3][3] = M3.w;
+	}
 
 	static FMatrix makeIdentity() // 단위행렬 만드는 함수
 	{
@@ -129,8 +150,6 @@ struct FMatrix {
 		return true;
 	}
 
-
-
 	FMatrix Transpose() const
 	{ 
 		FMatrix result = {};
@@ -239,6 +258,16 @@ struct FMatrix {
 		return result;
 	}
 
+	static FMatrix Ortho(float Left, float Right, float Bottom, float Top, float NearZ, float FarZ)
+	{
+		return FMatrix{
+			FVector4(2.0f / (Right - Left), 0.0f, 0.0f, 0.0f),
+			FVector4(0.0f, 2.0f / (Top - Bottom), 0.0f, 0.0f),
+			FVector4(0.0f, 0.0f, 1.0f / (FarZ - NearZ), 0.0f),
+			FVector4(-(Right + Left) / (Right - Left), -(Top + Bottom) / (Top - Bottom), -NearZ / (FarZ - NearZ), 1.0f)
+		};
+	}
+
 	[[nodiscard]] FVector GetUnitAxis(EAxis Axis) const
 	{
 		const int i = static_cast<int>(Axis);
@@ -308,24 +337,33 @@ struct FMatrix {
 	// end Struct Matrix
 };
 
-inline const FMatrix FMatrix::Identity = { {
-	{1, 0, 0, 0},
-	{0, 1, 0, 0},
-	{0, 0, 1, 0},
-	{0, 0, 0, 1}
-} };
+// 행벡터 규약: V * M. 투영 시 동차 좌표 w까지 유지한다.
+inline FVector4 operator*(const FVector4& V, const FMatrix& M)
+{
+	return FVector4(
+		V.x * M.M[0][0] + V.y * M.M[1][0] + V.z * M.M[2][0] + V.w * M.M[3][0],
+		V.x * M.M[0][1] + V.y * M.M[1][1] + V.z * M.M[2][1] + V.w * M.M[3][1],
+		V.x * M.M[0][2] + V.y * M.M[1][2] + V.z * M.M[2][2] + V.w * M.M[3][2],
+		V.x * M.M[0][3] + V.y * M.M[1][3] + V.z * M.M[2][3] + V.w * M.M[3][3]);
+}
 
-inline const FMatrix FMatrix::Zero = { {
-	{0, 0, 0, 0},
-	{0, 0, 0, 0},
-	{0, 0, 0, 0},
-	{0, 0, 0, 0}
-} };
+inline const FMatrix FMatrix::Identity = {
+	FVector4(1, 0, 0, 0),
+	FVector4(0, 1, 0, 0),
+	FVector4(0, 0, 1, 0),
+	FVector4(0, 0, 0, 1)
+};
 
+inline const FMatrix FMatrix::Zero = {
+	FVector4(0, 0, 0, 0),
+	FVector4(0, 0, 0, 0),
+	FVector4(0, 0, 0, 0),
+	FVector4(0, 0, 0, 0)
+};
 
-inline const FMatrix FMatrix::UEToDX = { {
-	{0, 0, 1, 0},
-	{1, 0, 0, 0},
-	{0, 1, 0, 0},
-	{0, 0, 0, 1}
-} };
+inline const FMatrix FMatrix::UEToDX = {
+	FVector4(0, 0, 1, 0),
+	FVector4(1, 0, 0, 0),
+	FVector4(0, 1, 0, 0),
+	FVector4(0, 0, 0, 1)
+};

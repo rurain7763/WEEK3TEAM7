@@ -9,10 +9,13 @@
 
 class AActor;
 class FSceneManager;
+class URenderer;
 
 struct FEditorViewportClient
 {
 public:
+	FEditorViewportClient(URenderer& InRenderer);
+
 	void RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio);
 	float GetFov() const { return mCamera.mFovDegree; }
 	void Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio);

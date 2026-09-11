@@ -47,3 +47,7 @@ private:
 	bool mbStarted = false;
 };
 
+inline const FVector Up = FVector(0, 0, 1);
+inline const FVector Right = FVector(0, 1, 0);
+inline const FVector Front = FVector(1, 0, 0);
+

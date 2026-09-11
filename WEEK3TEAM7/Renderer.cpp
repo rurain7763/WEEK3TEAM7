@@ -2,46 +2,98 @@
 
 void URenderer::Create(HWND hWindow)
 {
-	CreateDeviceAndSwapChain(hWindow);
-	CreateFrameBuffer();
-	//CreateDepthStencilBuffer();
-
-	CreateDepthStencilState();
+#if 0
 	CreateStencilMarkState();
 	CreateStencilOutlineState();
 	CreateNoColorWriteBlendState();
 	CreateRasterizerState();
+#else 
+	CreateDeviceAndSwapChain(hWindow);
+	CreateFrameBuffer();
+	CreateDepthStencilBuffer();
+
+	DefaultPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	DefaultPipeline->SetRasterRizerState(D3D11_CULL_BACK);
+	DefaultPipeline->SetDepthStencilState(true, true);
+	DefaultPipeline->SetShader("Assets/Shaders/Mesh.hlsl");
+	DefaultPipeline->AddConstantBuffer<FConstants>();
+	DefaultPipeline->AddConstantBuffer<FMatrix>();
+
+	Line2DPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	Line2DPipeline->SetRasterRizerState(D3D11_CULL_NONE);
+	Line2DPipeline->SetDepthStencilState(false, false);
+	Line2DPipeline->SetShader("Assets/Shaders/Line2D.hlsl");
+	Line2DPipeline->AddConstantBuffer<FLine2DConstants>();
+
+	Circle2DPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	Circle2DPipeline->SetRasterRizerState(D3D11_CULL_NONE);
+	Circle2DPipeline->SetDepthStencilState(false, false);
+	Circle2DPipeline->SetShader("Assets/Shaders/Circle2D.hlsl");
+	Circle2DPipeline->AddConstantBuffer<FCircle2DConstants>();
+
+	Triangle2DPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	Triangle2DPipeline->SetRasterRizerState(D3D11_CULL_NONE);
+	Triangle2DPipeline->SetDepthStencilState(false, false);
+	Triangle2DPipeline->SetShader("Assets/Shaders/Triangle2D.hlsl");
+	Triangle2DPipeline->AddConstantBuffer<FTriangle2DConstants>();
+
+	WorldAxisPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	WorldAxisPipeline->SetRasterRizerState(D3D11_CULL_NONE);
+	WorldAxisPipeline->SetDepthStencilState(true, true);
+	WorldAxisPipeline->SetShader("Assets/Shaders/WorldAxis.hlsl");
+	WorldAxisPipeline->AddConstantBuffer<FWorldAxisConstants>();
+
+	WorldGridPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	WorldGridPipeline->SetRasterRizerState(D3D11_CULL_NONE);
+	WorldGridPipeline->SetDepthStencilState(true, false);
+
+	CD3D11_BLEND_DESC BlendDesc = {};
+	BlendDesc.RenderTarget[0].BlendEnable = TRUE;
+	BlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	BlendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	BlendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	BlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	BlendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	BlendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	BlendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+	WorldGridPipeline->SetBlendState(BlendDesc);
+
+	WorldGridPipeline->SetShader("Assets/Shaders/WorldGrid.hlsl");
+	WorldGridPipeline->AddConstantBuffer<FWorldGridConstants>();
+#endif
 }
 
 void URenderer::CreateDeviceAndSwapChain(HWND hWindow)
 {
-	D3D_FEATURE_LEVEL featurelevels[] = { D3D_FEATURE_LEVEL_11_0 };
+	D3D_FEATURE_LEVEL FeatureLevels[] = { D3D_FEATURE_LEVEL_11_0 };
 
-	DXGI_SWAP_CHAIN_DESC swapchaindesc = {};
-	swapchaindesc.BufferDesc.Width = 0;
-	swapchaindesc.BufferDesc.Height = 0;
-	swapchaindesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	swapchaindesc.SampleDesc.Count = 1;
-	swapchaindesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	swapchaindesc.BufferCount = 2;
-	swapchaindesc.OutputWindow = hWindow;
-	swapchaindesc.Windowed = TRUE;
-	swapchaindesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	DXGI_SWAP_CHAIN_DESC SwapChainDesc = {};
+	SwapChainDesc.BufferDesc.Width = 0;
+	SwapChainDesc.BufferDesc.Height = 0;
+	SwapChainDesc.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	SwapChainDesc.SampleDesc.Count = 1;
+	SwapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	SwapChainDesc.BufferCount = 2;
+	SwapChainDesc.OutputWindow = hWindow;
+	SwapChainDesc.Windowed = TRUE;
+	SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
-	UINT createDeviceFlags = 0;
+	UINT CreateDeviceFlags = 0;
 
 #if defined(_DEBUG)
-	createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+	CreateDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
-	D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
-		D3D11_CREATE_DEVICE_BGRA_SUPPORT | createDeviceFlags,
-		featurelevels, ARRAYSIZE(featurelevels), D3D11_SDK_VERSION,
-		&swapchaindesc, &SwapChain, &Device, nullptr, &DeviceContext);
+	D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE,
+		nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT | CreateDeviceFlags,
+		FeatureLevels, ARRAYSIZE(FeatureLevels), D3D11_SDK_VERSION,
+		&SwapChainDesc, &SwapChain, &Device, nullptr, &DeviceContext);
 
-	SwapChain->GetDesc(&swapchaindesc);
-
-	ViewportInfo = { 0.0f, 0.0f, (float)swapchaindesc.BufferDesc.Width, (float)swapchaindesc.BufferDesc.Height, 0.0f, 1.0f };
+	SwapChain->GetDesc(&SwapChainDesc);
+	Width = SwapChainDesc.BufferDesc.Width;
+	Height = SwapChainDesc.BufferDesc.Height;
+	ViewportInfo = { 0.0f, 0.0f, (float)Width, (float)Height, 0.0f, 1.0f };
+	Projection2D = FMatrix::Ortho(0.f, Width, Height, 0.f, 0.0f, 1.0f);
 }
 
 void URenderer::ReleaseDeviceAndSwapChain()
@@ -96,28 +148,12 @@ void URenderer::ReleaseFrameBuffer()
 	}
 }
 
-ID3D11Buffer* URenderer::CreateVertexBuffer(FVertexSimple* vertices, UINT ByteWidth)
-{
-	UINT numVertices = ByteWidth / sizeof(FVertexSimple);
-
-	D3D11_BUFFER_DESC vertexbufferdesc = {};
-	vertexbufferdesc.ByteWidth = ByteWidth;
-	vertexbufferdesc.Usage = D3D11_USAGE_IMMUTABLE;
-	vertexbufferdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-
-	D3D11_SUBRESOURCE_DATA vertexbufferSRD = { vertices };
-
-	ID3D11Buffer* vertexBuffer;
-	Device->CreateBuffer(&vertexbufferdesc, &vertexbufferSRD, &vertexBuffer);
-
-	return vertexBuffer;
-}
-
 void URenderer::ReleaseVertexBuffer(ID3D11Buffer* vertexBuffer)
 {
 	vertexBuffer->Release();
 }
 
+#if 0
 // 선분은 매 프레임 내용이 바뀌므로 IMMUTABLE로는 만들 수 없다.
 // DYNAMIC + CPU_ACCESS_WRITE 라야 Map으로 덮어쓸 수 있다. (상수 버퍼와 같은 조합)
 void URenderer::CreateLineVertexBuffer(uint32 maxVertices)
@@ -144,42 +180,19 @@ void URenderer::ReleaseLineVertexBuffer()
 
 	LineVertexCapacity = 0;
 }
+#endif
 
-void URenderer::CreateRasterizerState()
-{
-	D3D11_RASTERIZER_DESC rasterizerdesc[2] = {};
-	rasterizerdesc[0].FillMode = D3D11_FILL_SOLID;
-	rasterizerdesc[0].CullMode = D3D11_CULL_BACK;
-	rasterizerdesc[0].DepthClipEnable = TRUE;
-
-	rasterizerdesc[1].FillMode = D3D11_FILL_WIREFRAME;
-	rasterizerdesc[1].CullMode = D3D11_CULL_NONE;
-	rasterizerdesc[1].DepthClipEnable = TRUE;
-
-	Device->CreateRasterizerState(&rasterizerdesc[0], &RasterizerState[0]);
-	Device->CreateRasterizerState(&rasterizerdesc[1], &RasterizerState[1]);
-}
-
-void URenderer::ReleaseRasterizerState()
-{
-	for (int i = 0; i < 2; ++i)
-	{
-		if (RasterizerState[i])
-		{
-			RasterizerState[i]->Release();
-			RasterizerState[i] = nullptr;
-		}
-	}
-}
 void URenderer::Release()
 {
-	ReleaseRasterizerState();
-
+	WorldGridPipeline.reset();
+	WorldAxisPipeline.reset();
+	Triangle2DPipeline.reset();
+	Circle2DPipeline.reset();
+	Line2DPipeline.reset();
+	DefaultPipeline.reset();
 	DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
-
-	ReleaseDepthStencilBuffer();
-	ReleaseDepthStencilState();
-	ReleaseBlendState();
+	DepthStencilView->Release();
+	DepthStencilBuffer->Release();
 	ReleaseFrameBuffer();
 	ReleaseDeviceAndSwapChain();
 }
@@ -189,98 +202,43 @@ void URenderer::SwapBuffer()
 	SwapChain->Present(1, 0);
 }
 
-void URenderer::CreateShader()
+void URenderer::Prepare(bool bWireFrame, const FMatrix& ViewProjectionMatrix)
 {
-	ID3DBlob* vertexshaderCSO;
-	ID3DBlob* pixelshaderCSO;
-
-	D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainVS", "vs_5_0", 0, 0, &vertexshaderCSO, nullptr);
-
-	Device->CreateVertexShader(vertexshaderCSO->GetBufferPointer(), vertexshaderCSO->GetBufferSize(), nullptr, &SimpleVertexShader);
-
-	D3DCompileFromFile(L"ShaderW0.hlsl", nullptr, nullptr, "mainPS", "ps_5_0", 0, 0, &pixelshaderCSO, nullptr);
-
-	Device->CreatePixelShader(pixelshaderCSO->GetBufferPointer(), pixelshaderCSO->GetBufferSize(), nullptr, &SimplePixelShader);
-
-	D3D11_INPUT_ELEMENT_DESC layout[] =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	};
-
-	Device->CreateInputLayout(layout, ARRAYSIZE(layout), vertexshaderCSO->GetBufferPointer(), vertexshaderCSO->GetBufferSize(), &SimpleInputLayout);
-
-	Stride = sizeof(FVertexSimple);
-
-	vertexshaderCSO->Release();
-	pixelshaderCSO->Release();
-}
-
-void URenderer::ReleaseShader()
-{
-	if (SimpleInputLayout)
-	{
-		SimpleInputLayout->Release();
-		SimpleInputLayout = nullptr;
-	}
-
-	if (SimplePixelShader)
-	{
-		SimplePixelShader->Release();
-		SimplePixelShader = nullptr;
-	}
-
-	if (SimpleVertexShader)
-	{
-		SimpleVertexShader->Release();
-		SimpleVertexShader = nullptr;
-	}
-}
-
-void URenderer::Prepare(bool bWireFrame)
-{
+#if 0
+	DeviceContext->RSSetState(RasterizerState[bWireFrame ? 1 : 0]);
+#else
 	DeviceContext->ClearRenderTargetView(FrameBufferRTV, ClearColor);
-
-	//매 프레임 깊이 버퍼를 1.0(가장 먼 값)으로 초기화
-	DeviceContext->ClearDepthStencilView(DepthStencilView,
-		D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	DeviceContext->ClearDepthStencilView(DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	DeviceContext->RSSetViewports(1, &ViewportInfo);
 
-	DeviceContext->RSSetState(RasterizerState[bWireFrame ? 1 : 0]);
-
-	//세 번째 인자에 nullptr 대신 DSV를 넘긴다
 	DeviceContext->OMSetRenderTargets(1, &FrameBufferRTV, DepthStencilView);
-	//깊이 테스트 규칙 적용
-	DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
 	DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
+
+	DefaultPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
+#endif
 }
+
+void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const
+{
+	DeviceContext->RSSetState(Pipeline->RasterizerState);
+	DeviceContext->OMSetDepthStencilState(Pipeline->DepthStencilState, 0);
+	DeviceContext->OMSetBlendState(Pipeline->BlendState, nullptr, 0xffffffff);
+	DeviceContext->IASetInputLayout(Pipeline->InputLayout);
+	DeviceContext->VSSetShader(Pipeline->VertexShader, nullptr, 0);
+	DeviceContext->PSSetShader(Pipeline->PixelShader, nullptr, 0);
+	DeviceContext->VSSetConstantBuffers(0, Pipeline->ConstantBuffers.Num(), &Pipeline->ConstantBuffers[0]);
+	DeviceContext->PSSetConstantBuffers(0, Pipeline->ConstantBuffers.Num(), &Pipeline->ConstantBuffers[0]);
+}
+
 void URenderer::RSUpdateState()
 {
 	DeviceContext->RSSetState(RasterizerState[0]);
 }
 
-void URenderer::PrepareShader()
-{
-	DeviceContext->VSSetShader(SimpleVertexShader, nullptr, 0);
-	DeviceContext->PSSetShader(SimplePixelShader, nullptr, 0);
-	DeviceContext->IASetInputLayout(SimpleInputLayout);
-
-	if (ConstantBuffer)
-	{
-		DeviceContext->VSSetConstantBuffers(0, 1, &ConstantBuffer);
-	}
-}
-
-void URenderer::RenderPrimitive(ID3D11Buffer* pBuffer, UINT numVertices)
-{
-	UINT offset = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &pBuffer, &Stride, &offset);
-	DeviceContext->Draw(numVertices, 0);
-}
-
+#if 0
 // 쌓아둔 선분 전체를 한 번의 Draw로 그린다.
 // 토폴로지를 바꾸므로 반드시 이 함수 안에서 되돌린다. 안 그러면 뒤에 그리는 것들이 전부 깨진다.
 void URenderer::RenderLines(const FVertexSimple* vertices, uint32 numVertices)
@@ -331,65 +289,108 @@ void URenderer::RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mView
 	// (c) 원상복구
 	DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
 }
+#endif
 
+void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, ID3D11Buffer* Buffer, UINT NumVertices) const
+{
+	BindPipeline(Pipeline);
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 1, &Buffer, &Pipeline->Stride, &Offset);
+	DeviceContext->Draw(NumVertices, 0);
+}
+
+void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model) const
+{
+	DefaultPipeline->UpdateConstantBuffer(0, FConstants{ Model, FVector4(1.0f, 1.0f, 1.0f, 1.0f), 1 });
+
+	RenderPrimitive(DefaultPipeline, Buffer, NumVertices);
+}
+
+void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const
+{
+	DefaultPipeline->UpdateConstantBuffer(0, FConstants{ Model, Color, 0 });
+
+	RenderPrimitive(DefaultPipeline, Buffer, NumVertices);
+}
+
+void URenderer::RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness) const
+{
+	Line2DPipeline->UpdateConstantBuffer(0, FLine2DConstants{ Projection2D, Color, Start, End, Thickness });
+
+	BindPipeline(Line2DPipeline);
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);
+	DeviceContext->Draw(6, 0);
+}
+
+void URenderer::RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius) const
+{
+	Circle2DPipeline->UpdateConstantBuffer(0, FCircle2DConstants{ Projection2D, Color, Center, Radius });
+
+	BindPipeline(Circle2DPipeline);
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);
+	DeviceContext->Draw(6, 0);
+}
+
+void URenderer::RenderTriangle2D(const FVector2& Center, const FVector4& Color, float Size, float Rotation) const
+{
+	Triangle2DPipeline->UpdateConstantBuffer(0, FTriangle2DConstants{ Projection2D, Color, Center, Size, Rotation - PI * 0.5f });
+
+	BindPipeline(Triangle2DPipeline);
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);
+	DeviceContext->Draw(3, 0);
+}
+
+void URenderer::RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness) const
+{
+	WorldAxisPipeline->UpdateConstantBuffer(0, FWorldAxisConstants{ View, Projection, Color, Axis, Thickness });
+
+	BindPipeline(WorldAxisPipeline);
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);
+	DeviceContext->Draw(6, 0);
+}
+
+void URenderer::RenderWorldGrid(const FMatrix& ViewProjection) const
+{
+	WorldGridPipeline->UpdateConstantBuffer(0, FWorldGridConstants{ ViewProjection });
+
+	BindPipeline(WorldGridPipeline);
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);
+	DeviceContext->Draw(6, 0);
+}
 
 //=============================================
-
-void URenderer::CreateConstantBuffer()
+void URenderer::CreateDepthStencilBuffer()
 {
-	D3D11_BUFFER_DESC constantbufferdesc = {};
-	constantbufferdesc.ByteWidth = sizeof(FConstants) + 0xf & 0xfffffff0; // ensure constant buffer size is multiple of 16 bytes
-	constantbufferdesc.Usage = D3D11_USAGE_DYNAMIC; // will be updated from CPU every frame
-	constantbufferdesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	constantbufferdesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	D3D11_TEXTURE2D_DESC DepthTextureDesc = {};
+	DepthTextureDesc.Width = Width;
+	DepthTextureDesc.Height = Height;
+	DepthTextureDesc.MipLevels = 1;
+	DepthTextureDesc.ArraySize = 1;
+	DepthTextureDesc.SampleDesc.Count = 1;
+	DepthTextureDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	DepthTextureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 
-	Device->CreateBuffer(&constantbufferdesc, nullptr, &ConstantBuffer);
+	Device->CreateTexture2D(&DepthTextureDesc, nullptr, &DepthStencilBuffer);
+
+	D3D11_DEPTH_STENCIL_VIEW_DESC DsvDesc = {};
+	DsvDesc.Format = DepthTextureDesc.Format;
+	DsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DMS;
+
+	Device->CreateDepthStencilView(DepthStencilBuffer, &DsvDesc, &DepthStencilView);
 }
 
-void URenderer::ReleaseConstantBuffer()
-{
-	if (ConstantBuffer)
-	{
-		ConstantBuffer->Release();
-		ConstantBuffer = nullptr;
-	}
-}
-
-void URenderer::CreateDepthStencilBuffer(UINT width, UINT height)
-{
-	D3D11_TEXTURE2D_DESC desc = {};
-
-	desc.Width = width;   // 백버퍼와 크기가 정확히 같아야 함
-	desc.Height = height;
-
-	desc.MipLevels = 1;
-	desc.ArraySize = 1;
-	desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;  // 깊이 24비트 + 스텐실 8비트
-	desc.SampleDesc.Count = 1;                    // 스왑체인의 SampleDesc와 반드시 동일
-	desc.SampleDesc.Quality = 0;
-	desc.Usage = D3D11_USAGE_DEFAULT;
-	desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;    // 이 플래그가 없으면 DSV 생성 실패
-
-	Device->CreateTexture2D(&desc, nullptr, &DepthStencilBuffer);
-
-	D3D11_DEPTH_STENCIL_VIEW_DESC dsvdesc = {};
-	dsvdesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	dsvdesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-
-	Device->CreateDepthStencilView(DepthStencilBuffer, &dsvdesc, &DepthStencilView);
-}
-
-void URenderer::CreateDepthStencilState()
-{
-	D3D11_DEPTH_STENCIL_DESC desc = {};
-	desc.DepthEnable = TRUE;							 // 깊이 테스트 켜기
-	desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;    // 통과한 픽셀의 z를 기록
-	desc.DepthFunc = D3D11_COMPARISON_LESS;				 // 더 가까우면(작으면) 통과
-	desc.StencilEnable = FALSE;
-
-	Device->CreateDepthStencilState(&desc, &DepthStencilState);
-}
-
+#if 0
 void URenderer::CreateStencilMarkState()
 {
 	D3D11_DEPTH_STENCIL_DESC desc = {};
@@ -442,47 +443,14 @@ void URenderer::CreateNoColorWriteBlendState()
 
 	Device->CreateBlendState(&desc, &NoColorWriteBlendState);
 }
-
-void URenderer::ReleaseBlendState()
-{
-	if (NoColorWriteBlendState) { NoColorWriteBlendState->Release(); NoColorWriteBlendState = nullptr; }
-}
-
-void URenderer::ReleaseDepthStencilBuffer()
-{
-	if (DepthStencilView) { DepthStencilView->Release();   DepthStencilView = nullptr; }
-	if (DepthStencilBuffer) { DepthStencilBuffer->Release(); DepthStencilBuffer = nullptr; }
-}
-
-void URenderer::ReleaseDepthStencilState()
-{
-	if (DepthStencilState) { DepthStencilState->Release();  DepthStencilState = nullptr; }
-	if (StencilMarkState) { StencilMarkState->Release();  StencilMarkState = nullptr; }
-	if (StencilOutlineState) { StencilOutlineState->Release();  StencilOutlineState = nullptr; }
-}
-
-void URenderer::UpdateConstant(FMatrix world, FMatrix viewProjection, FVector4 tint)
-{
-	if (ConstantBuffer)
-	{
-		D3D11_MAPPED_SUBRESOURCE constantbufferMSR;
-
-		DeviceContext->Map(ConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &constantbufferMSR); // update constant buffer every frame
-		FConstants* constants = (FConstants*)constantbufferMSR.pData;
-		{
-			constants->World = world;
-			constants->ViewProjection = viewProjection;
-			constants->Tint = tint;
-		}
-		DeviceContext->Unmap(ConstantBuffer, 0);
-	}
-}
+#endif
 
 void URenderer::OnResize(UINT width, UINT height, float viewportWidth, float viewportHeight)
 {
 	if (!SwapChain || width == 0 || height == 0) return;
 	if (ViewportInfo.Width == viewportWidth && ViewportInfo.Height == viewportHeight) return;
 
+#if 0
 	//해상도에 의존하는 프레임 버퍼와 뎁스 스텐실 버퍼를 재생성한다.
 	DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 	ReleaseFrameBuffer();
@@ -499,6 +467,24 @@ void URenderer::OnResize(UINT width, UINT height, float viewportWidth, float vie
 	//상태는 이전에 생성한 걸 그대로 재사용
 	CreateFrameBuffer();
 	CreateDepthStencilBuffer(width, height);
+#else
+	DeviceContext->OMSetRenderTargets(0, 0, 0);
+
+	FrameBuffer->Release();
+	FrameBufferRTV->Release();
+	DepthStencilBuffer->Release();
+	DepthStencilView->Release();
+
+	SwapChain->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
+
+	Width = width;
+	Height = height;
+	ViewportInfo = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
+	Projection2D = FMatrix::Ortho(0.f, Width, Height, 0.f, 0.0f, 1.0f);
+
+	CreateFrameBuffer();
+	CreateDepthStencilBuffer();
+#endif
 }
 
 void URenderer::ClearDepth()

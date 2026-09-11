@@ -58,10 +58,11 @@ public:
 				Input.OnMouseWheel(GET_WHEEL_DELTA_WPARAM(M.wParam) / (float)WHEEL_DELTA);
 				break;
 			case WM_MOUSEMOVE:
-				Input.CursorX = (short)LOWORD(M.lParam);
-				Input.CursorY = (short)HIWORD(M.lParam);
+				{
+					Input.CursorX = (short)LOWORD(M.lParam);
+					Input.CursorY = (short)HIWORD(M.lParam);
+				}
 				break;
-
 			case WM_INPUT:
 				Input.OnRawMouse(M.RawMouseDX, M.RawMouseDY);
 				break;

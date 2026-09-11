@@ -16,6 +16,18 @@ typedef unsigned long long uint64;
 typedef float float32;
 typedef double float64;
 
+template <typename T>
+using TSharedPtr = std::shared_ptr<T>;
+
+template <typename T, typename... Args>
+TSharedPtr<T> MakeShared(Args&&... args)
+{
+	return std::make_shared<T>(std::forward<Args>(args)...);
+}
+
+template <typename T, typename K>
+using TPair = std::pair<T, K>;
+
 struct FString
 {
 public:

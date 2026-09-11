@@ -44,6 +44,7 @@ public:
 	void SetPerspectiveProjection(bool bPerspectiveProjection);
 
 	float GetPerspectiveRatio() const { return mProjectionRatio; }
+	const FMatrix& GetViewProjectionMatrix() const { return mViewUnifiedProjectionMatrix; }
 	void SetPerspectiveRatio(float ratio) { mProjectionRatio = FMath::Clamp(ratio, 0.0f, 1.0f); }
 
 	float GetCameraOrthoDistance() const { return mCameraOrthoDistance; }
@@ -74,6 +75,8 @@ public:
 
 private:
 	URenderer* mRenderer;
+	FMatrix mViewMatrix;
+	FMatrix mProjectionMatrix;
 	FMatrix mViewProjectionMatrix;
 	FMatrix mViewOrthogonalProjectionMatrix;
 	FMatrix mViewUnifiedProjectionMatrix;

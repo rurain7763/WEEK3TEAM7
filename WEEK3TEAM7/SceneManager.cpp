@@ -251,14 +251,27 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 
 	// Display the current gizmo mode dropdown
 	const char* gizmoModeNames[] = { "Translate", "Rotate", "Scale" };
-	int32 gizmoModeIndex = static_cast<int32>(guiReference.ViewportClient->mGizmo.eType);
-	if (ImGui::Combo("Gizmo Mode", &gizmoModeIndex, gizmoModeNames, IM_ARRAYSIZE(gizmoModeNames)))
+
+	EGIZMO_TYPE currentGizmoType = guiReference.ViewportClient->mGizmo.GetOperation();
+	int32 currentGizmoIndex = static_cast<int32>(currentGizmoType);
+	if (ImGui::Combo("Gizmo Mode", &currentGizmoIndex, gizmoModeNames, IM_ARRAYSIZE(gizmoModeNames)))
 	{
-		guiReference.ViewportClient->mGizmo.SetGizmoType(static_cast<EGIZMO_TYPE>(gizmoModeIndex));
+		if (currentGizmoIndex == 0)
+		{
+			guiReference.ViewportClient->mGizmo.SetOperation(EGIZMO_TYPE::TRANSLATE);
+		}
+		else if (currentGizmoIndex == 1)
+		{
+			guiReference.ViewportClient->mGizmo.SetOperation(EGIZMO_TYPE::ROTATE);
+		}
+		else if (currentGizmoIndex == 2)
+		{
+			guiReference.ViewportClient->mGizmo.SetOperation(EGIZMO_TYPE::SCALE);
+		}
 	}
 	if (ImGui::Button("Next Gizmo Mode"))
 	{
-		guiReference.ViewportClient->mGizmo.CycleGizmoType();
+		guiReference.ViewportClient->mGizmo.SetOperation(static_cast<EGIZMO_TYPE>((currentGizmoIndex + 1) % 3));
 	}
 
 

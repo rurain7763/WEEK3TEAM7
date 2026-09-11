@@ -8,7 +8,6 @@ struct FInputState
 	bool bDown[256] = {};
 	bool bPressed[256] = {};
 	bool bReleased[256] = {};
-
 	//이번 프레임 마우스 이동량
 	long MouseDX = 0, MouseDY = 0;
 	int  CursorX = 0, CursorY = 0;
@@ -28,6 +27,7 @@ struct FInputState
 	void OnKeyUp(int vk) { bReleased[vk] = true; bDown[vk] = false; }
 	void OnRawMouse(long dx, long dy) { MouseDX += dx; MouseDY += dy; }
 	void OnMouseWheel(float Delta) { MouseWheelDelta = Delta; }
+
 	void OnFocusLost() { memset(bDown, 0, sizeof(bDown)); MouseDX = MouseDY = 0; }
 
 	bool IsDown(int vk)      const { return bDown[vk]; }
