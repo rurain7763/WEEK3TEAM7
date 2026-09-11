@@ -140,6 +140,20 @@ inline void TArray<T>::Init(const T& data, uint32 count)
 	mDatas.assign(count, data);
 }
 
+template <typename T>
+inline void TArray<T>::SetNum(int32 NewNum, bool bAllowShrinking)
+{
+	if (NewNum < 0)
+	{
+		NewNum = 0;
+	}
+
+	if (bAllowShrinking || NewNum > static_cast<int32>(mDatas.size()))
+	{
+		mDatas.resize(NewNum);
+	}
+}
+
 template<typename T>
 inline uint32 TArray<T>::Add(const T& data)
 {
