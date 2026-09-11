@@ -19,6 +19,7 @@
 #include "imGui/imgui_impl_win32.h"
 #include "Actor.h"
 #include "World.h"
+#include <FLogManager.h>
 
 void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 {
@@ -180,6 +181,13 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 void FEngineLoop::End()
 {
+
+	const std::string Value = std::format("{:.6f}", ViewportClient->GetCamera().Sensitivity);
+
+	if (!WritePrivateProfileStringA("Camera", "Sensitivity", Value.c_str(), ".\\editor.ini"))
+	{
+		UE_LOG_ERROR("Failed to save camera sensitivity to editor.ini");
+	}
 	mSceneManager->DeleteScene();
 
 	ImGui_ImplDX11_Shutdown();
