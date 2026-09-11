@@ -454,8 +454,7 @@ void FSceneManager::updateObjectListPanelGUI(const FGuiReference& guiReference)
 					ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(255, 255, 0, 50)); // Light yellow background
 				}
 
-				if (ImGui::BeginChild("ObjectFrame", ImVec2(0, 0),
-					ImGuiChildFlags_FrameStyle | ImGuiChildFlags_AutoResizeY))
+				if (ImGui::BeginChild("ObjectFrame", ImVec2(0, 0), ImGuiChildFlags_FrameStyle | ImGuiChildFlags_AutoResizeY))
 				{
 					ImGui::Text("Class: %s", object->GetRuntimeClass()->Name.CStr());
 					ImGui::Text("UUID: %d", object->UUID);

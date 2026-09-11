@@ -148,11 +148,6 @@ void URenderer::ReleaseFrameBuffer()
 	}
 }
 
-void URenderer::ReleaseVertexBuffer(ID3D11Buffer* vertexBuffer)
-{
-	vertexBuffer->Release();
-}
-
 #if 0
 // 선분은 매 프레임 내용이 바뀌므로 IMMUTABLE로는 만들 수 없다.
 // DYNAMIC + CPU_ACCESS_WRITE 라야 Map으로 덮어쓸 수 있다. (상수 버퍼와 같은 조합)
@@ -291,23 +286,23 @@ void URenderer::RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mView
 }
 #endif
 
-void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, ID3D11Buffer* Buffer, UINT NumVertices) const
+void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const
 {
 	BindPipeline(Pipeline);
 
 	UINT Offset = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &Buffer, &Pipeline->Stride, &Offset);
+	DeviceContext->IASetVertexBuffers(0, 1, Buffer.GetAddressOf(), &Pipeline->Stride, &Offset);
 	DeviceContext->Draw(NumVertices, 0);
 }
 
-void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model) const
+void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const
 {
 	DefaultPipeline->UpdateConstantBuffer(0, FConstants{ Model, FVector4(1.0f, 1.0f, 1.0f, 1.0f), 1 });
 
 	RenderPrimitive(DefaultPipeline, Buffer, NumVertices);
 }
 
-void URenderer::RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const
+void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const
 {
 	DefaultPipeline->UpdateConstantBuffer(0, FConstants{ Model, Color, 0 });
 

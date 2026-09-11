@@ -10,6 +10,8 @@
 #include "RenderInfo.h"
 #include "Vector.h"
 
+class FAssetManager;
+
 struct FBuffer
 {
 	ID3D11Buffer* Buffer;
@@ -23,13 +25,13 @@ public:
 	~FGraphicsManager();
 
 	//void Prepare(const Camera* mCamera);
-	void Prepare(const FCamera* mCamera);
+	void Prepare(const FCamera* Camera);
 	void GizmoPrepare();
 
 	//void Render(FTransform worldTransformMatrix, EPrimitive ePrimitive); // FRenderInfo
 	//void Render(const TArray<FRenderInfo> renderInfos);
-	void Render(const TArray<FRenderInfo> renderInfos);
-	void RenderOverlay(const TArray<FRenderInfo> renderInfos);
+	void Render(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos);
+	void RenderOverlay(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos);
 	//void RenderOverlay(const TArray<FRenderInfo> renderInfos); //깊이버퍼 초기화
 	// FRenderInfo
 
@@ -51,7 +53,6 @@ public:
 	void SetCameraOrthoDistance(float distance) { mCameraOrthoDistance = distance; }
 
 	// Todo: Change name
-	void CreateBuffer(EPrimitive ePrimitive, FVertexSimple* vertices, uint32 verticesSize);
 	URenderer* GetRenderer() const;
 
 	//Highlight
@@ -86,8 +87,6 @@ private:
 	FVector mCameraForward;
 	float mCameraFovDegree = 60.0f;
 	float mCameraOrthoDistance = 10.0f;
-
-	TMap<EPrimitive, FBuffer> mBufferMap;
 
 	// Graphics config
 	// 이번 프레임에 쌓인 선분. 정점 2개가 선분 하나

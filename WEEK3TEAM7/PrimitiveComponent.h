@@ -1,10 +1,12 @@
 ﻿#pragma once
 
 #include "SceneComponent.h"
+#include "FAsset.h"
 
 class UPrimitiveComponent : public USceneComponent
 {
 	REFLECT_CLASS(UPrimitiveComponent, USceneComponent)
+
 public:
 	UPrimitiveComponent();
 
@@ -26,6 +28,7 @@ public:
 protected:
 	//GraphicsManager* mGraphicsManager;
 	EPrimitive mePrimitive;
+	FName mMeshAssetName;
 };
 
 

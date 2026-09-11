@@ -3,6 +3,7 @@
 #include "Core.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>
+#include <wrl/client.h>
 #include "Matrix.h"
 #include "Vector.h"
 #include "RenderInfo.h"
@@ -129,7 +130,7 @@ public:
 #endif
 
 	template <typename T>
-	ID3D11Buffer* CreateVertexBuffer(T* Vertices, UINT ByteWidth)
+	Microsoft::WRL::ComPtr<ID3D11Buffer> CreateVertexBuffer(T* Vertices, UINT ByteWidth)
 	{
 		D3D11_BUFFER_DESC VertexBufferDesc = {};
 		VertexBufferDesc.ByteWidth = ByteWidth;
@@ -138,13 +139,11 @@ public:
 
 		D3D11_SUBRESOURCE_DATA VertexBufferSRD = { Vertices };
 
-		ID3D11Buffer* VertexBuffer;
-		Device->CreateBuffer(&VertexBufferDesc, &VertexBufferSRD, &VertexBuffer);
+		Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer;
+		Device->CreateBuffer(&VertexBufferDesc, &VertexBufferSRD, VertexBuffer.GetAddressOf());
 
 		return VertexBuffer;
 	}
-
-	void ReleaseVertexBuffer(ID3D11Buffer* vertexBuffer);
 
 	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const;
 
@@ -158,9 +157,9 @@ public:
 	void RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI);
 #endif
 
-	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, ID3D11Buffer* Buffer, UINT NumVertices) const;
-	void RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model) const;
-	void RenderPrimitive(ID3D11Buffer* Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const;
+	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const;
+	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const;
+	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const;
 
 	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f) const;
 	void RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius = 1.0f) const;

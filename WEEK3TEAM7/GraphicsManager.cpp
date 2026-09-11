@@ -1,9 +1,10 @@
 ﻿#include "GraphicsManager.h"
-
 #include "Renderer.h"
 #include "Camera.h"
 #include "Console.h"
 #include "FLogManager.h"
+#include "FAssetManager.h"
+#include "Assets.h"
 
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
 static constexpr uint32 LINE_VERTEX_CAPACITY = 8192;
@@ -24,11 +25,6 @@ FGraphicsManager::FGraphicsManager(HWND hWindow)
 
 FGraphicsManager::~FGraphicsManager()
 {
-	for (auto& buffer : mBufferMap)
-	{
-		buffer.second.Buffer->Release();
-	}
-
 #if 0
 	mRenderer->ReleaseLineVertexBuffer();
 #endif
@@ -74,12 +70,13 @@ void FGraphicsManager::Prepare(const FCamera* mCamera)
 	// NearCube(주황)가 앞에 남고, 꺼져 있으면 FarCube(파랑)가 그 위를 덮어쓴다.
 	//mRenderer->UpdateConstantViewProjection(viewProjection);
 }
+
 void FGraphicsManager::GizmoPrepare()
 {
 	mRenderer->RSUpdateState();
 
 }
-void FGraphicsManager::Render(const TArray<FRenderInfo> renderInfos)
+void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRenderInfo> renderInfos)
 {
 	FMatrix viewProjection;
 	//if (mbPerspectiveProjection)
@@ -96,14 +93,15 @@ void FGraphicsManager::Render(const TArray<FRenderInfo> renderInfos)
 	for (const FRenderInfo& renderInfo : renderInfos)
 	{
 		//mRenderer->UpdateConstant(renderInfo.WorldTransformMatrix, mViewProjectionMatrix, renderInfo.Color);
-		FBuffer* vertexBuffer = mBufferMap.Find(renderInfo.ePrimitive);
-		if (vertexBuffer == nullptr)
+
+		TSharedPtr<FStaticMeshAsset> asset = mAssetManager->GetAssetAs<FStaticMeshAsset>(renderInfo.StaticMeshName);
+		if (!asset)
 		{
-			UE_LOG("Error: Vertex buffer not found for primitive type.");
+			UE_LOG("Error: Static mesh asset not found for name: %s", renderInfo.StaticMeshName.ToString().c_str());
 			continue;
 		}
 
-		mRenderer->RenderPrimitive(vertexBuffer->Buffer, vertexBuffer->SourceNum, renderInfo.WorldTransformMatrix);
+		mRenderer->RenderPrimitive(asset->GetVertexBuffer(), asset->GetVertexCount(), renderInfo.WorldTransformMatrix);
 	}
 }
 void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const FVector4& color)
@@ -181,10 +179,10 @@ void FGraphicsManager::FlushLines()
 #endif
 }
 
-void FGraphicsManager::RenderOverlay(const TArray<FRenderInfo> renderInfos) //깊이버퍼 초기화
+void FGraphicsManager::RenderOverlay(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos) //깊이버퍼 초기화
 {
 	mRenderer->ClearDepth();
-	Render(renderInfos);
+	Render(AssetManager, renderInfos);
 }
 /*
 void GraphicsManager::Render(FTransform worldTransformMatrix, EPrimitive ePrimitive)
@@ -214,17 +212,6 @@ bool FGraphicsManager::IsPerspectiveProjection() const
 void FGraphicsManager::SetPerspectiveProjection(bool bPerspectiveProjection)
 {
 	mbPerspectiveProjection = bPerspectiveProjection;
-}
-
-void FGraphicsManager::CreateBuffer(EPrimitive ePrimitive, FVertexSimple* vertices, uint32 verticesSize)
-{
-	assert(vertices != nullptr);
-
-	UINT numVertices = static_cast<UINT>(verticesSize / sizeof(FVertexSimple));
-	ID3D11Buffer* vertexBuffer = mRenderer->CreateVertexBuffer(vertices, verticesSize);
-
-	FBuffer buffer = { vertexBuffer, numVertices };
-	mBufferMap.Add(ePrimitive, buffer);
 }
 
 URenderer* FGraphicsManager::GetRenderer() const
@@ -303,6 +290,7 @@ void FGraphicsManager::RenderHighLight(const FRenderInfo& RI)
 		* FMatrix::Translation(Center)
 		* RI.WorldTransformMatrix;
 
+#if 0
 	FBuffer vertexBuffer = mBufferMap[RI.ePrimitive];
 	//if (mbPerspectiveProjection)
 	//{
@@ -313,7 +301,6 @@ void FGraphicsManager::RenderHighLight(const FRenderInfo& RI)
 	//	mRenderer->RenderHighlight(vertexBuffer.Buffer, vertexBuffer.SourceNum, mViewOrthogonalProjectionMatrix, Outline, RI);
 	//}
 
-#if 0
 	mRenderer->RenderHighlight(vertexBuffer.Buffer, vertexBuffer.SourceNum, mViewUnifiedProjectionMatrix, Outline, RI);
 #endif
 }

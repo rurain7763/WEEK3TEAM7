@@ -1,7 +1,6 @@
 ﻿#include "LaunchEngineLoop.h"
 
 #include <windows.h>
-
 #include "Renderer.h"
 #include "WindowApplication.h"
 #include "Console.h"
@@ -19,6 +18,7 @@
 #include "imGui/imgui_impl_win32.h"
 #include "Actor.h"
 #include "World.h"
+#include "Assets.h"
 
 void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 {
@@ -72,12 +72,6 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 	ConsoleWindow& console = ConsoleWindow::Get();
 	console.Init(clientWidth);
 
-	mGraphicsManager->CreateBuffer(EPrimitive::EP_Cube, Cube_vertices, sizeof(Cube_vertices));
-	mGraphicsManager->CreateBuffer(EPrimitive::EP_Sphere, Sphere_vertices, sizeof(Sphere_vertices));
-	mGraphicsManager->CreateBuffer(EPrimitive::EP_GizmoArrow, GizmoArrow_vertices, sizeof(GizmoArrow_vertices));
-	mGraphicsManager->CreateBuffer(EPrimitive::EP_Circle, Circle_vertices, sizeof(Circle_vertices));
-	mGraphicsManager->CreateBuffer(EPrimitive::EP_Triangle, Triangle_vertices, sizeof(Triangle_vertices));
-
 	FrameTimer = new FFrameTimer(120);
 	ViewportClient = new FEditorViewportClient(*mGraphicsManager->GetRenderer()); // Todo: cChange to class
 
@@ -86,9 +80,9 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 
 	mSceneManager = new FSceneManager();
 	mFileManager = new FFileManager();
+	InitAssetManager();
 
 	mSceneManager->NewScene();
-
 
 	//test code
 	//{
@@ -97,7 +91,34 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 	//	cubeActor->AddComponent(cubeComonent);
 	//	mSceneManager.GetCurrentWorld()->AddActor(cubeActor);
 	//}
+}
+
+void FEngineLoop::InitAssetManager()
+{
+	mAssetManager = new FAssetManager();
+
+	URenderer* renderer = mGraphicsManager->GetRenderer();
 	
+	// Register built-in asset types
+	Microsoft::WRL::ComPtr<ID3D11Buffer> cubeVertexBuffer = renderer->CreateVertexBuffer(Cube_vertices, sizeof(Cube_vertices));
+	TSharedPtr<FStaticMeshAsset> cubeAsset = MakeShared<FStaticMeshAsset>(FName("CubeMesh"), cubeVertexBuffer, sizeof(Cube_vertices) / sizeof(FVertexSimple));
+	mAssetManager->RegisterAsset(cubeAsset);
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer> sphereVertexBuffer = renderer->CreateVertexBuffer(Sphere_vertices, sizeof(Sphere_vertices));
+	TSharedPtr<FStaticMeshAsset> sphereAsset = MakeShared<FStaticMeshAsset>(FName("SphereMesh"), sphereVertexBuffer, sizeof(Sphere_vertices) / sizeof(FVertexSimple));
+	mAssetManager->RegisterAsset(sphereAsset);
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer> circleVertexBuffer = renderer->CreateVertexBuffer(Circle_vertices, sizeof(Circle_vertices));
+	TSharedPtr<FStaticMeshAsset> circleAsset = MakeShared<FStaticMeshAsset>(FName("CircleMesh"), circleVertexBuffer, sizeof(Circle_vertices) / sizeof(FVertexSimple));
+	mAssetManager->RegisterAsset(circleAsset);
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer> triangleVertexBuffer = renderer->CreateVertexBuffer(Triangle_vertices, sizeof(Triangle_vertices));
+	TSharedPtr<FStaticMeshAsset> triangleAsset = MakeShared<FStaticMeshAsset>(FName("TriangleMesh"), triangleVertexBuffer, sizeof(Triangle_vertices) / sizeof(FVertexSimple));
+	mAssetManager->RegisterAsset(triangleAsset);
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer> gizmoArrowVertexBuffer = renderer->CreateVertexBuffer(GizmoArrow_vertices, sizeof(GizmoArrow_vertices));
+	TSharedPtr<FStaticMeshAsset> gizmoArrowAsset = MakeShared<FStaticMeshAsset>(FName("GizmoArrowMesh"), gizmoArrowVertexBuffer, sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
+	mAssetManager->RegisterAsset(gizmoArrowAsset);
 }
 
 void FEngineLoop::Tick(bool bPumpMessages)
@@ -147,7 +168,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 		mGraphicsManager->Update(deltaTime);
 		mGraphicsManager->Prepare(&ViewportClient->mCamera);
-		mGraphicsManager->Render(mSceneManager->GetRenderInfos());
+		mGraphicsManager->Render(mAssetManager, mSceneManager->GetRenderInfos());
 		
 
 		//월드 축. 액터 뒤에 그려서 같은 깊이 버퍼로 가려지게 한다 (기즈모와 달리 깊이를 지우지 않는다)
@@ -189,6 +210,7 @@ void FEngineLoop::End()
 	delete FrameTimer;
 	delete mSceneManager;
 	delete mFileManager;
+	delete mAssetManager;
 
 	delete mGraphicsManager;
 }

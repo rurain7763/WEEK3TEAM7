@@ -8,6 +8,7 @@
 #include "FileManager.h"
 #include "Renderer.h"
 #include "World.h"
+#include "FAssetManager.h"
 
 #include <d3d11.h>
 
@@ -24,6 +25,10 @@ public:
 	void Init(HINSTANCE hInstance, WNDPROC WndProc);
 	void Tick(bool bPumpMessages);
 	void End();
+
+private:
+	void InitAssetManager();
+
 private:
 	// Todo: Make as pointer
 	FFrameTimer* FrameTimer;
@@ -33,6 +38,7 @@ private:
 	FGraphicsManager* mGraphicsManager;
 	FSceneManager* mSceneManager;
 	FFileManager* mFileManager;
+	FAssetManager* mAssetManager;
 };
 
 inline FEngineLoop GEngineLoop;

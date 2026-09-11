@@ -107,7 +107,7 @@ bool FString::EndsWith(std::string_view suffix) const
 
 bool FString::EndsWith(const FString& suffix) const
 {
-	return EndsWith(*suffix.mData);
+	return EndsWith(std::string_view(*suffix.mData));
 }
 
 bool FString::Equals(std::string_view other) const
@@ -132,7 +132,7 @@ int32 FString::Find(std::string_view subStr, int32 startIndex) const
 
 int32 FString::Find(const FString& subStr, int32 startIndex) const
 {
-	return Find(*subStr.mData, startIndex);
+	return Find(std::string_view(*subStr.mData), startIndex);
 }
 
 void FString::InsertAt(int32 index, std::string_view str)
@@ -144,7 +144,7 @@ void FString::InsertAt(int32 index, std::string_view str)
 
 void FString::InsertAt(int32 index, const FString& str)
 {
-	InsertAt(index, *str.mData);
+	InsertAt(index, std::string_view(*str.mData));
 }
 
 bool FString::IsNumeric() const
@@ -215,7 +215,7 @@ bool FString::RemoveFromEnd(std::string_view suffix)
 
 bool FString::RemoveFromEnd(const FString& suffix)
 {
-	return RemoveFromEnd(*suffix.mData);
+	return RemoveFromEnd(std::string_view(*suffix.mData));
 }
 
 bool FString::RemoveFromStart(std::string_view prefix)
@@ -230,7 +230,7 @@ bool FString::RemoveFromStart(std::string_view prefix)
 
 bool FString::RemoveFromStart(const FString& prefix)
 {
-	return RemoveFromStart(*prefix.mData);
+	return RemoveFromStart(std::string_view(*prefix.mData));
 }
 
 FString FString::Replace(std::string_view from, std::string_view to) const
@@ -247,7 +247,7 @@ FString FString::Replace(std::string_view from, std::string_view to) const
 
 FString FString::Replace(const FString& from, const FString& to) const
 {
-	return Replace(*from.mData, *to.mData);
+	return Replace(std::string_view(*from.mData), std::string_view(*to.mData));
 }
 
 void FString::Reserve(int32 characterCount)
@@ -302,7 +302,7 @@ bool FString::StartsWith(std::string_view prefix) const
 
 bool FString::StartsWith(const FString& prefix) const
 {
-	return StartsWith(*prefix.mData);
+	return StartsWith(std::string_view(*prefix.mData));
 }
 
 bool FString::ToBool() const
