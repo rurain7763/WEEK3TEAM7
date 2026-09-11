@@ -13,7 +13,7 @@ void URenderer::Create(HWND hWindow)
 	CreateDepthStencilBuffer();
 
 	DefaultPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
-	DefaultPipeline->SetRasterRizerState(D3D11_CULL_BACK);
+	DefaultPipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, {EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe});
 	DefaultPipeline->SetDepthStencilState(true, true);
 	DefaultPipeline->SetShader("Assets/Shaders/Mesh.hlsl");
 	DefaultPipeline->AddConstantBuffer<FConstants>();
@@ -202,11 +202,8 @@ void URenderer::SwapBuffer()
 	SwapChain->Present(1, 0);
 }
 
-void URenderer::Prepare(bool bWireFrame, const FMatrix& ViewProjectionMatrix)
+void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
 {
-#if 0
-	DeviceContext->RSSetState(RasterizerState[bWireFrame ? 1 : 0]);
-#else
 	DeviceContext->ClearRenderTargetView(FrameBufferRTV, ClearColor);
 	DeviceContext->ClearDepthStencilView(DepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
@@ -218,12 +215,13 @@ void URenderer::Prepare(bool bWireFrame, const FMatrix& ViewProjectionMatrix)
 	DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
 
 	DefaultPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
-#endif
 }
 
 void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const
 {
-	DeviceContext->RSSetState(Pipeline->RasterizerState);
+	// RSSetState는 드로우 직전마다 갈아치워지므로 뷰 모드 선택은 여기서 해야 한다.
+	// 이 모드를 지원하지 않는 파이프라인(2D/기즈모)은 Lit 상태로 폴백된다.
+	DeviceContext->RSSetState(Pipeline->GetRasterizerState(ViewModeIndex));
 	DeviceContext->OMSetDepthStencilState(Pipeline->DepthStencilState, 0);
 	DeviceContext->OMSetBlendState(Pipeline->BlendState, nullptr, 0xffffffff);
 	DeviceContext->IASetInputLayout(Pipeline->InputLayout);

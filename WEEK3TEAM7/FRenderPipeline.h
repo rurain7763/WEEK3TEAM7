@@ -4,6 +4,8 @@
 #include <d3dcompiler.h>
 #include "Core.h"
 #include "TArray.h"
+#include "enum.h"
+#include <initializer_list>
 
 class URenderer;
 
@@ -15,7 +17,9 @@ public:
 
 	void Release();
 
-	void SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias = 0);
+	// ViewModes에 나열한 뷰 모드마다 래스터라이저 상태를 하나씩 만든다.
+	void SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias = 0, std::initializer_list<EViewModeIndex> ViewModes = { EViewModeIndex::VMI_Lit });
+	ID3D11RasterizerState* GetRasterizerState(EViewModeIndex ViewMode) const;
 	void SetDepthStencilState(bool bEnableDepthTest, bool bEnableDepthWrite);
 	void SetBlendState(const D3D11_BLEND_DESC& BlendDesc);
 	void SetShader(const FString& ShaderPath);
@@ -61,8 +65,8 @@ private:
 
 	ID3D11Device* Device = nullptr;
 	ID3D11DeviceContext* DeviceContext = nullptr;
-
-	ID3D11RasterizerState* RasterizerState = nullptr;
+	static constexpr int32 ViewModeCount = static_cast<int32>(EViewModeIndex::VMI_Max);
+	ID3D11RasterizerState* RasterizerStates[ViewModeCount] = {};
 	ID3D11DepthStencilState* DepthStencilState = nullptr;
 	ID3D11InputLayout* InputLayout = nullptr;
 	ID3D11BlendState* BlendState = nullptr;

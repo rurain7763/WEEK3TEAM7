@@ -9,6 +9,7 @@
 #include "Camera.h"
 #include "RenderInfo.h"
 #include "Vector.h"
+#include "enum.h"
 
 struct FBuffer
 {
@@ -37,8 +38,8 @@ public:
 	void Update(float deltaTime);
 
 	float GetAspect() const { return mAspect; }
-	bool GetWireFrame() const { return mbWireFrame; } const
-	void SetWireFrame(bool bWireFrame) { mbWireFrame = bWireFrame; }
+	EViewModeIndex GetViewModeIndex() const { return mViewModeIndex; }
+	void SetViewModeIndex(EViewModeIndex viewModeIndex) { mViewModeIndex = viewModeIndex; }
 
 	bool IsPerspectiveProjection() const;
 	void SetPerspectiveProjection(bool bPerspectiveProjection);
@@ -93,7 +94,7 @@ private:
 	// 이번 프레임에 쌓인 선분. 정점 2개가 선분 하나
 	TArray<FVertexSimple> mLineVertices;
 
-	bool mbWireFrame;
+	EViewModeIndex mViewModeIndex = EViewModeIndex::VMI_Lit;
 	bool mbPerspectiveProjection;
 	bool mbShowWorldAxis = true;
 	float mAspect;

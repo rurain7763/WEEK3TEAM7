@@ -92,6 +92,10 @@ public:
     D3D11_VIEWPORT ViewportInfo;
 	FMatrix Projection2D;
 
+	// 와이어프레임 여부. Prepare에서 갱신하고 BindPipeline이 읽는다.
+	// RSSetState는 드로우 직전마다 덮어써지므로 플래그로 들고 있어야 한다.
+	EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Lit;
+
 #if 1
 	ID3D11RasterizerState* RasterizerState[2] = {};
 	ID3D11DepthStencilState* StencilMarkState = nullptr;	// 스텐실에 1 마킹용 상태
@@ -152,7 +156,7 @@ public:
 	void RSUpdateState();
 
 	//Rendering
-	void Prepare(bool bWireFrame, const FMatrix& ViewProjectionMatrix);
+	void Prepare(const FMatrix& ViewProjectionMatrix);
 #if 0
 	void RenderLines(const FVertexSimple* vertices, uint32 numVertices);
 	void RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI);

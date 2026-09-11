@@ -216,15 +216,19 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 	FCamera& camera = guiReference.ViewportClient->GetCamera();
 	URenderer* renderer = guiReference.GraphicsManager->GetRenderer();
 
-	//ImGui::SliderFloat("Speed", &Camera.Speed, -10.0f, 10.0f);
+	const char* viewModeNames[] = { "Lit", "Unlit", "Wireframe" };
+
+	EViewModeIndex currentViewMode = guiReference.GraphicsManager->GetViewModeIndex();
+	int32 currentViewModeIndex = static_cast<int32>(currentViewMode);
+	// Combo는 선택이 바뀐 프레임에만 true를 돌려주고, 바뀐 값은 이미
+	// currentViewModeIndex에 들어 있다. 그 안에서 Checkbox를 그리면
+	// 한 프레임만 나타났다 사라져 클릭할 수 없다.
+	if (ImGui::Combo("View Mode", &currentViewModeIndex, viewModeNames, IM_ARRAYSIZE(viewModeNames)))
+	{
+		guiReference.GraphicsManager->SetViewModeIndex(static_cast<EViewModeIndex>(currentViewModeIndex));
+	}
 	if (ImGui::BeginCombo("##ShowFlags", "Show Flags"))
 	{
-		bool bWireFrame = guiReference.GraphicsManager->GetWireFrame();
-		if (ImGui::Checkbox("Wire frame", &bWireFrame))
-		{
-			guiReference.GraphicsManager->SetWireFrame(bWireFrame);
-		}
-
 		bool bShowWorldAxis = guiReference.GraphicsManager->GetShowWorldAxis();
 		if (ImGui::Checkbox("World axis", &bShowWorldAxis))
 		{
