@@ -271,6 +271,17 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 	ImGui::SameLine();
 	ImGui::SliderFloat("##FOV", &camera.mFovDegree, 0.0f, 180.0f);
 
+	ImGui::Text("Sensitivity");
+	ImGui::SameLine();
+	if (ImGui::SliderFloat("##CameraSensitivity", &camera.Sensitivity, 0.01f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+	{
+		const std::string Value = std::format("{:.6f}", camera.Sensitivity);
+		if (!WritePrivateProfileStringA("Camera", "Sensitivity", Value.c_str(), ".\\editor.ini"))
+		{
+			UE_LOG_ERROR("Failed to save camera sensitivity to editor.ini");
+		}
+	}
+
 	// 1) 라벨 텍스트를 먼저 그리고 같은 줄로
 	ImGui::Text("Location");
 	ImGui::SameLine();

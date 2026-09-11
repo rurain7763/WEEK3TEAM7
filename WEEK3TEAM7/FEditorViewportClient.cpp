@@ -12,6 +12,7 @@
 #include "MathUtility.h"
 #include "GraphicsManager.h"
 #include "Renderer.h"
+#include <cstdio>
 
 // 정점 배열이 보이는 스코프라 sizeof 로 개수가 나온다.
 // 포인터로 받으면 배열 크기 정보가 사라지므로 여기서 개수를 같이 넘긴다.
@@ -48,6 +49,13 @@ FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	: mCamera(FTransform({ -2.0f, 1.0f, 1.0f }, { 0, 30, 0 }, { 1, 1, 1 }))
 	, mGizmo(InRenderer)
 {
+	char Value[64] = {};
+	GetPrivateProfileStringA("Camera", "Sensitivity", "", Value, sizeof(Value), ".\\editor.ini");
+	float Sensitivity = 0.1f;
+	if (sscanf_s(Value, "%f", &Sensitivity) == 1 && Sensitivity >= 0.01f && Sensitivity <= 1.0f)
+	{
+		mCamera.SetSensitivity(Sensitivity);
+	}
 }
 
 void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio)
