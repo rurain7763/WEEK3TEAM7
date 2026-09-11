@@ -8,9 +8,8 @@
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
 static constexpr uint32 LINE_VERTEX_CAPACITY = 8192;
 
-FGraphicsManager::FGraphicsManager(HWND hWindow)
-	: mbWireFrame(false)
-	, mbPerspectiveProjection(true)
+FGraphicsManager::FGraphicsManager(HWND hWindow) :
+	mbPerspectiveProjection(true)
 	, mProjectionRatio(1.0f)
 {
 	mRenderer = new URenderer;
@@ -55,7 +54,11 @@ void FGraphicsManager::Prepare(const FCamera* mCamera)
 	mProjectionMatrix = projection_u_p;
 	mViewProjectionMatrix = view * projection_u_p;
 
-	mRenderer->Prepare(mbWireFrame, view * projection_u);
+	// 뷰 모드를 렌더러에 전달한다. BindPipeline이 드로우마다 이 값을 보고
+	// 솔리드/와이어프레임 래스터라이저를 고른다.
+	mRenderer->ViewModeIndex = mViewModeIndex;
+
+	mRenderer->Prepare(view * projection_u);
 
 	float orthoHeight = mCamera->mOrthoHeight;
 	float orthoWidth = orthoHeight * mAspect;
