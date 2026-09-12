@@ -279,3 +279,5 @@ imgui.ini
 editor.ini
 *.vcxproj
 *.vcxproj.filters
+
+!Assets/Textures/**
