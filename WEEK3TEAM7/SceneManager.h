@@ -66,6 +66,8 @@ public:
 	void ResetSelectedActor() { mSelectedActor = nullptr; }
 
 	float GetPanelWidth() const;
+	float GetViewportWidth() const { return mViewportWidth; }
+	float GetViewportHeight() const { return mViewportHeight; }
 
 private:
 	static constexpr float MIN_WIDTH_RATIO = 0.2f;
@@ -75,6 +77,8 @@ private:
 	static constexpr float WINDOW_PROPERTY_HEIGHT_RATIO = 0.3f;
 
 	float mPanelWidth;
+	float mViewportWidth;
+	float mViewportHeight;
 
 	UWorld* mCurrentWorld = nullptr;
 	AActor* mSelectedActor = nullptr;

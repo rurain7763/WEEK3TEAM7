@@ -59,8 +59,9 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGui_ImplWin32_Init((void*)hWnd);
-	ImGui_ImplDX11_Init(mGraphicsManager->GetRenderer()->Device, mGraphicsManager->GetRenderer()->DeviceContext);
+	ImGui_ImplDX11_Init(mGraphicsManager->GetRenderer()->GetDevice(), mGraphicsManager->GetRenderer()->GetDeviceContext());
 	auto& IO = ImGui::GetIO();
+	IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	IO.Fonts->AddFontFromFileTTF(
 		"C:/Windows/Fonts/malgun.ttf",
 		18.0f,
@@ -134,13 +135,8 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	{
 		WindowApplication.ProcessDeferredEvents();
 
-		//ImGui Input
-		{
-			mSceneManager->UpdateGUI({ *FrameTimer, mGraphicsManager, ViewportClient, mFileManager });
-		}
-
 		mGraphicsManager->UpdateProjectionTransition(deltaTime);
-		ViewportClient->Update(deltaTime, mGraphicsManager->GetRenderer()->ViewportInfo, mSceneManager, mGraphicsManager->GetPerspectiveRatio());
+		ViewportClient->Update(deltaTime, mGraphicsManager->GetRenderer()->GetViewport(), mSceneManager, mGraphicsManager->GetPerspectiveRatio());
 	}
 
 	//Physics Threads
@@ -159,17 +155,13 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	{
 		if (WindowApplication.bPendingResize)
 		{
-			float viewportWidth = mSceneManager->GetPanelWidth();
-			float viewportHeight = (1.f - ConsoleWindow::HEIGHT_RATIO) * WindowApplication.PendingHeight;
-
-			mGraphicsManager->GetRenderer()->OnResize(WindowApplication.PendingWidth, WindowApplication.PendingHeight, viewportWidth, viewportHeight);
+			mGraphicsManager->GetRenderer()->OnResize(WindowApplication.PendingWidth, WindowApplication.PendingHeight);
 			WindowApplication.bPendingResize = false;
 		}
 
 		mGraphicsManager->Update(deltaTime);
-		mGraphicsManager->Prepare(&ViewportClient->mCamera);
+		mGraphicsManager->Prepare(&ViewportClient->mCamera, mSceneManager->GetViewportWidth(), mSceneManager->GetViewportHeight());
 		mGraphicsManager->Render(mAssetManager, mSceneManager->GetRenderInfos());
-		
 
 		//월드 축. 액터 뒤에 그려서 같은 깊이 버퍼로 가려지게 한다 (기즈모와 달리 깊이를 지우지 않는다)
 		mGraphicsManager->DrawWorldAxis();
@@ -187,6 +179,11 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 		//ImGui
 		{
+			//ImGui Input
+			mSceneManager->UpdateGUI({ *FrameTimer, mGraphicsManager, ViewportClient, mFileManager });
+
+			mGraphicsManager->GetRenderer()->BindFrameBuffer();
+
 			ImGui::Render();
 			ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 		}

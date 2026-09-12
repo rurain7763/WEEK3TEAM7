@@ -68,9 +68,109 @@ struct FWorldGridConstants
 	FMatrix ViewProjection;
 };
 
+struct FRenderTarget2D
+{
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
+	Microsoft::WRL::ComPtr<ID3D11RenderTargetView> RTV;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV;
+};
+
+struct FDepthStencil
+{
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
+	Microsoft::WRL::ComPtr<ID3D11DepthStencilView> DSV;
+};
+
 class URenderer
 {
 public:
+	//create
+	void Create(HWND hWindow);
+	void Release();
+
+#if 0
+	void CreateLineVertexBuffer(uint32 maxVertices);
+
+	void CreateStencilMarkState();
+	void CreateStencilOutlineState();
+	void CreateNoColorWriteBlendState();
+
+	//release
+	void ReleaseLineVertexBuffer();
+#endif
+
+	template <typename T>
+	Microsoft::WRL::ComPtr<ID3D11Buffer> CreateVertexBuffer(T* Vertices, UINT ByteWidth)
+	{
+		D3D11_BUFFER_DESC VertexBufferDesc = {};
+		VertexBufferDesc.ByteWidth = ByteWidth;
+		VertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+		VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+		D3D11_SUBRESOURCE_DATA VertexBufferSRD = { Vertices };
+
+		Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer;
+		Device->CreateBuffer(&VertexBufferDesc, &VertexBufferSRD, VertexBuffer.GetAddressOf());
+
+		return VertexBuffer;
+	}
+
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> CreateTexture2D(const D3D11_TEXTURE2D_DESC& TextureDesc, const void* Data = nullptr);
+
+	TSharedPtr<FRenderTarget2D> CreateRenderTarget2D(uint32 Width, uint32 Height, DXGI_FORMAT Format);
+	TSharedPtr<FDepthStencil> CreateDepthStencil(uint32 Width, uint32 Height);
+	
+	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const;
+
+	//Update
+	void RSUpdateState();
+
+	//Rendering
+	void Prepare(bool bWireFrame, const FMatrix& ViewProjectionMatrix);
+#if 0
+	void RenderLines(const FVertexSimple* vertices, uint32 numVertices);
+	void RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI);
+#endif
+
+	void BindFrameBuffer();
+	void BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget, const TSharedPtr<FDepthStencil>& DepthStencil, bool bClear = true);
+
+	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const;
+	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const;
+	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const;
+
+	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f) const;
+	void RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius = 1.0f) const;
+	void RenderTriangle2D(const FVector2& Center, const FVector4& Color, float Size = 1.0f, float Rotation = 0.0f) const;
+	void RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness = 1.0f) const;
+	void RenderWorldGrid(const FMatrix& ViewProjection) const;
+
+	void SwapBuffer();
+
+	//Initialize
+	void ClearDepth();
+
+	//=============================================
+	//해상도 변경 시 호출
+	//void OnResize(UINT Width, UINT Height);
+	void OnResize(UINT width, UINT height);
+
+	FORCEINLINE uint32 GetWidth() const { return Width; }
+	FORCEINLINE uint32 GetHeight() const { return Height; }
+	FORCEINLINE const D3D11_VIEWPORT& GetViewport() const { return ViewportInfo; }
+	FORCEINLINE ID3D11Device* GetDevice() const { return Device; }
+	FORCEINLINE ID3D11DeviceContext* GetDeviceContext() const { return DeviceContext; }
+
+private:
+	void CreateDeviceAndSwapChain(HWND hWindow);
+	void ReleaseDeviceAndSwapChain();
+
+	void CreateFrameBuffer();
+	void ReleaseFrameBuffer();
+
+	void CreateDepthStencilBuffer();
+
+private:
     ID3D11Device* Device = nullptr;
     ID3D11DeviceContext* DeviceContext = nullptr;
     IDXGISwapChain* SwapChain = nullptr;
@@ -103,80 +203,4 @@ public:
 	ID3D11Buffer* LineVertexBuffer = nullptr;
 	uint32 LineVertexCapacity = 0;
 #endif
-
-public:
-	//create
-	void Create(HWND hWindow);
-
-	void CreateDeviceAndSwapChain(HWND hWindow);
-	void ReleaseDeviceAndSwapChain();
-
-	void CreateFrameBuffer();
-	void ReleaseFrameBuffer();
-
-	void CreateDepthStencilBuffer();
-
-	void Release();
-
-#if 0
-	void CreateLineVertexBuffer(uint32 maxVertices);
-
-	void CreateStencilMarkState();
-	void CreateStencilOutlineState();
-	void CreateNoColorWriteBlendState();
-
-	//release
-	void ReleaseLineVertexBuffer();
-#endif
-
-	template <typename T>
-	Microsoft::WRL::ComPtr<ID3D11Buffer> CreateVertexBuffer(T* Vertices, UINT ByteWidth)
-	{
-		D3D11_BUFFER_DESC VertexBufferDesc = {};
-		VertexBufferDesc.ByteWidth = ByteWidth;
-		VertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-		VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-
-		D3D11_SUBRESOURCE_DATA VertexBufferSRD = { Vertices };
-
-		Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer;
-		Device->CreateBuffer(&VertexBufferDesc, &VertexBufferSRD, VertexBuffer.GetAddressOf());
-
-		return VertexBuffer;
-	}
-
-	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const;
-
-	//Update
-	void RSUpdateState();
-
-	//Rendering
-	void Prepare(bool bWireFrame, const FMatrix& ViewProjectionMatrix);
-#if 0
-	void RenderLines(const FVertexSimple* vertices, uint32 numVertices);
-	void RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI);
-#endif
-
-	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const;
-	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const;
-	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const;
-
-	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f) const;
-	void RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius = 1.0f) const;
-	void RenderTriangle2D(const FVector2& Center, const FVector4& Color, float Size = 1.0f, float Rotation = 0.0f) const;
-	void RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness = 1.0f) const;
-	void RenderWorldGrid(const FMatrix& ViewProjection) const;
-
-	void SwapBuffer();
-
-	//Initialize
-	void ClearDepth();
-
-    //=============================================
-	//해상도 변경 시 호출
-	//void OnResize(UINT Width, UINT Height);
-	void OnResize(UINT width, UINT height, float viewportWidth, float viewportHeight);
-
-	FORCEINLINE uint32 GetWidth() const { return Width; }
-	FORCEINLINE uint32 GetHeight() const { return Height; }
 };

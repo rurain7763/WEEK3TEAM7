@@ -25,7 +25,7 @@ public:
 	~FGraphicsManager();
 
 	//void Prepare(const Camera* mCamera);
-	void Prepare(const FCamera* Camera);
+	void Prepare(const FCamera* Camera,float viewportWidth, float viewportHeight);
 	void GizmoPrepare();
 
 	//void Render(FTransform worldTransformMatrix, EPrimitive ePrimitive); // FRenderInfo
@@ -74,6 +74,8 @@ public:
 	bool IsOrthographicTarget() const;
 	void UpdateProjectionTransition(float deltaTime);
 
+	inline const TSharedPtr<FRenderTarget2D>& GetSceneRenderTarget() const { return mSceneRenderTarget; }
+
 private:
 	URenderer* mRenderer;
 	FMatrix mViewMatrix;
@@ -104,4 +106,7 @@ private:
 	float mProjectionElapsed = 0.0f;
 	float mProjectionDuration = 1.0f;
 	bool mbProjectionTransitioning = false;
+
+	TSharedPtr<FRenderTarget2D> mSceneRenderTarget;
+	TSharedPtr<FDepthStencil> mSceneDepthStencil;
 };

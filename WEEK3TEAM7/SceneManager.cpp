@@ -24,11 +24,14 @@
 #include "FrameTimer.h"
 #include "CubeComponent.h"
 #include "ActorComponent.h"
+#include "WindowApplication.h"
 
 FSceneManager::FSceneManager()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	mPanelWidth = io.DisplaySize.x * MIN_WIDTH_RATIO;
+	mViewportWidth = WindowApplication.PendingWidth;
+	mViewportHeight = WindowApplication.PendingHeight;
 
 	//mCurrentWorld = FObjectFactory::ConstructObject<UWorld>();
 
@@ -68,6 +71,33 @@ void FSceneManager::UpdateGUI(const FGuiReference& guiReference)
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
+	{
+		// Docking
+		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+
+		if (ImGui::Begin("Viewport"))
+		{
+			const ImVec2 size = ImGui::GetContentRegionAvail();
+
+			if (size.x > 0 && size.y > 0)
+			{
+				const TSharedPtr<FRenderTarget2D>& sceneRenderTarget = guiReference.GraphicsManager->GetSceneRenderTarget();
+				ImGui::Image((ImTextureID)(intptr_t)sceneRenderTarget->SRV.Get(), size);
+
+				const ImVec2 imageMin = ImGui::GetItemRectMin();
+				const ImVec2 imageMax = ImGui::GetItemRectMax();
+
+				mViewportWidth = imageMax.x - imageMin.x;
+				mViewportHeight = imageMax.y - imageMin.y;
+			}
+		}
+		ImGui::End();
+
+		ImGui::PopStyleVar();
+	}
+
 	updateControlPanelGUI(guiReference);
 	updatePropertyWindowGUI(guiReference);
 	updateObjectListPanelGUI(guiReference);
@@ -81,15 +111,10 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 
 	float panelHeight = io.DisplaySize.y * CONTROL_PANEL_HEIGHT_RATIO;
 
-	ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+	ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, panelHeight), ImGuiCond_FirstUseEver);
 
-	ImGui::SetNextWindowSizeConstraints(
-		ImVec2(io.DisplaySize.x * MIN_WIDTH_RATIO, panelHeight),
-		ImVec2(io.DisplaySize.x * MAX_WIDTH_RATIO, panelHeight)
-	);
-	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, panelHeight), ImGuiCond_Always);
-
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 	ImGui::Begin("Jungle Control Panel", nullptr, flags);
 	mPanelWidth = ImGui::GetWindowWidth();
 
@@ -348,15 +373,10 @@ void FSceneManager::updatePropertyWindowGUI(const FGuiReference& guiReference)
 	float controlPanelHeight = io.DisplaySize.y * CONTROL_PANEL_HEIGHT_RATIO;
 	float propertyHeight = io.DisplaySize.y * WINDOW_PROPERTY_HEIGHT_RATIO;
 
-	ImGui::SetNextWindowPos(ImVec2(0.0f, controlPanelHeight), ImGuiCond_Always);
+	ImGui::SetNextWindowPos(ImVec2(0.0f, controlPanelHeight), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, propertyHeight), ImGuiCond_FirstUseEver);
 
-	ImGui::SetNextWindowSizeConstraints(
-		ImVec2(io.DisplaySize.x * MIN_WIDTH_RATIO, propertyHeight),
-		ImVec2(io.DisplaySize.x * MAX_WIDTH_RATIO, propertyHeight)
-	);
-	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, propertyHeight), ImGuiCond_Always);
-
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 
 	ImGui::Begin("Jungle Property Window", nullptr, flags);
 
@@ -405,15 +425,10 @@ void FSceneManager::updateObjectListPanelGUI(const FGuiReference& guiReference)
 	float offsetHeight = io.DisplaySize.y * (CONTROL_PANEL_HEIGHT_RATIO + WINDOW_PROPERTY_HEIGHT_RATIO);
 	float objectListPanelHeight = io.DisplaySize.y - offsetHeight;
 
-	ImGui::SetNextWindowPos(ImVec2(0.0f, offsetHeight), ImGuiCond_Always);
+	ImGui::SetNextWindowPos(ImVec2(0.0f, offsetHeight), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, objectListPanelHeight), ImGuiCond_FirstUseEver);
 
-	ImGui::SetNextWindowSizeConstraints(
-		ImVec2(io.DisplaySize.x * MIN_WIDTH_RATIO, objectListPanelHeight),
-		ImVec2(io.DisplaySize.x * MAX_WIDTH_RATIO, objectListPanelHeight)
-	);
-	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, objectListPanelHeight), ImGuiCond_Always);
-
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 
 	ImGui::Begin("Object List Panel", nullptr, flags);
 	{

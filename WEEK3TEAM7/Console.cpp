@@ -52,12 +52,12 @@ void ConsoleWindow::Process(float panelWidth)
 
 	ImGui::SetNextWindowPos(
 		ImVec2(panelWidth, io.DisplaySize.y - consolHeight),
-		ImGuiCond_Always
+		ImGuiCond_FirstUseEver
 	);
 
 	ImGui::SetNextWindowSize(
 		ImVec2(io.DisplaySize.x - panelWidth, consolHeight),
-		ImGuiCond_Always
+		ImGuiCond_FirstUseEver
 	);
 
 	if (!ImGui::Begin("Console Window", &bIsOpened, ImGuiWindowFlags_MenuBar)) {

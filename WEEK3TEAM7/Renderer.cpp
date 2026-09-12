@@ -1,5 +1,25 @@
 ﻿#include "Renderer.h"
 
+namespace
+{
+	UINT GetByteSizeFromFormat(DXGI_FORMAT Format)
+	{
+		switch (Format)
+		{
+		case DXGI_FORMAT_R32G32B32A32_FLOAT:
+			return 16;
+		case DXGI_FORMAT_R32G32B32_FLOAT:
+			return 12;
+		case DXGI_FORMAT_R16G16B16A16_FLOAT:
+			return 8;
+		case DXGI_FORMAT_R8G8B8A8_UNORM:
+			return 4;
+		default:
+			return 0; // Unknown format
+		}
+	}
+}
+
 void URenderer::Create(HWND hWindow)
 {
 #if 0
@@ -216,6 +236,82 @@ void URenderer::Prepare(bool bWireFrame, const FMatrix& ViewProjectionMatrix)
 #endif
 }
 
+Microsoft::WRL::ComPtr<ID3D11Texture2D> URenderer::CreateTexture2D(const D3D11_TEXTURE2D_DESC& TextureDesc, const void* Data)
+{
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
+
+	if (Data)
+	{
+		D3D11_SUBRESOURCE_DATA TextureData = {};
+		TextureData.pSysMem = Data;
+		TextureData.SysMemPitch = TextureDesc.Width * GetByteSizeFromFormat(TextureDesc.Format);
+
+		Device->CreateTexture2D(&TextureDesc, &TextureData, &Texture);
+	}
+	else
+	{
+		Device->CreateTexture2D(&TextureDesc, nullptr, &Texture);
+	}
+
+	return Texture;
+}
+
+TSharedPtr<FRenderTarget2D> URenderer::CreateRenderTarget2D(uint32 Width, uint32 Height, DXGI_FORMAT Format)
+{
+	TSharedPtr<FRenderTarget2D> RenderTarget = MakeShared<FRenderTarget2D>();
+
+	D3D11_TEXTURE2D_DESC TextureDesc = {};
+	TextureDesc.Width = Width;
+	TextureDesc.Height = Height;
+	TextureDesc.MipLevels = 1;
+	TextureDesc.ArraySize = 1;
+	TextureDesc.Format = Format;
+	TextureDesc.SampleDesc.Count = 1;
+	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+	TextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+
+	RenderTarget->Texture = CreateTexture2D(TextureDesc);
+
+	D3D11_RENDER_TARGET_VIEW_DESC RTVDesc = {};
+	RTVDesc.Format = Format;
+	RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	Device->CreateRenderTargetView(RenderTarget->Texture.Get(), &RTVDesc, RenderTarget->RTV.GetAddressOf());
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+	SRVDesc.Format = Format;
+	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	SRVDesc.Texture2D.MostDetailedMip = 0;
+	SRVDesc.Texture2D.MipLevels = 1;
+	Device->CreateShaderResourceView(RenderTarget->Texture.Get(), &SRVDesc, RenderTarget->SRV.GetAddressOf());
+
+	return RenderTarget;
+}
+
+TSharedPtr<FDepthStencil> URenderer::CreateDepthStencil(uint32 Width, uint32 Height)
+{
+	TSharedPtr<FDepthStencil> DepthStencil = MakeShared<FDepthStencil>();
+
+	D3D11_TEXTURE2D_DESC TextureDesc = {};
+	TextureDesc.Width = Width;
+	TextureDesc.Height = Height;
+	TextureDesc.MipLevels = 1;
+	TextureDesc.ArraySize = 1;
+	TextureDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+	TextureDesc.SampleDesc.Count = 1;
+	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+	TextureDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+
+	DepthStencil->Texture = CreateTexture2D(TextureDesc);
+
+	D3D11_DEPTH_STENCIL_VIEW_DESC DsvDesc = {};
+	DsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	DsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	DsvDesc.Texture2D.MipSlice = 0;
+	Device->CreateDepthStencilView(DepthStencil->Texture.Get(), &DsvDesc, DepthStencil->DSV.GetAddressOf());
+
+	return DepthStencil;
+}
+
 void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const
 {
 	DeviceContext->RSSetState(Pipeline->RasterizerState);
@@ -285,6 +381,25 @@ void URenderer::RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mView
 	DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
 }
 #endif
+
+void URenderer::BindFrameBuffer()
+{
+	DeviceContext->OMSetRenderTargets(1, &FrameBufferRTV, nullptr);
+}
+
+void URenderer::BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget, const TSharedPtr<FDepthStencil>& DepthStencil, bool bClear)
+{
+	DeviceContext->OMSetRenderTargets(1, RenderTarget->RTV.GetAddressOf(), DepthStencil->DSV.Get());
+	if (bClear)
+	{
+		DeviceContext->ClearRenderTargetView(RenderTarget->RTV.Get(), ClearColor);
+
+		if (DepthStencil)
+		{
+			DeviceContext->ClearDepthStencilView(DepthStencil->DSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+		}
+	}
+}
 
 void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const
 {
@@ -440,10 +555,9 @@ void URenderer::CreateNoColorWriteBlendState()
 }
 #endif
 
-void URenderer::OnResize(UINT width, UINT height, float viewportWidth, float viewportHeight)
+void URenderer::OnResize(UINT width, UINT height)
 {
 	if (!SwapChain || width == 0 || height == 0) return;
-	if (ViewportInfo.Width == viewportWidth && ViewportInfo.Height == viewportHeight) return;
 
 #if 0
 	//해상도에 의존하는 프레임 버퍼와 뎁스 스텐실 버퍼를 재생성한다.
