@@ -120,6 +120,11 @@ void FEngineLoop::InitAssetManager()
 	Microsoft::WRL::ComPtr<ID3D11Buffer> gizmoArrowVertexBuffer = renderer->CreateVertexBuffer(GizmoArrow_vertices, sizeof(GizmoArrow_vertices));
 	TSharedPtr<FStaticMeshAsset> gizmoArrowAsset = MakeShared<FStaticMeshAsset>(FName("GizmoArrowMesh"), gizmoArrowVertexBuffer, sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(gizmoArrowAsset);
+
+	TSharedPtr<FTexture2DAssetLoader> TextureLoader = MakeShared<FTexture2DAssetLoader>(*renderer);
+
+	TSharedPtr<FFileAssetSource> FileAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Textures/Test.jpg");
+	mAssetManager->RegisterAsset(FName("TestTexture"), TextureLoader, FileAssetSource);
 }
 
 void FEngineLoop::Tick(bool bPumpMessages)
@@ -137,7 +142,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 		//ImGui Input
 		{
-			mSceneManager->UpdateGUI({ *FrameTimer, mGraphicsManager, ViewportClient, mFileManager });
+			mSceneManager->UpdateGUI({ *FrameTimer, mGraphicsManager, ViewportClient, mFileManager, mAssetManager });
 		}
 
 		mGraphicsManager->UpdateProjectionTransition(deltaTime);
@@ -202,7 +207,6 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 void FEngineLoop::End()
 {
-
 	const std::string Value = std::format("{:.6f}", ViewportClient->GetCamera().Sensitivity);
 
 	if (!WritePrivateProfileStringA("Camera", "Sensitivity", Value.c_str(), ".\\editor.ini"))
@@ -215,6 +219,7 @@ void FEngineLoop::End()
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
+	delete ViewportClient;
 	delete FrameTimer;
 	delete mSceneManager;
 	delete mFileManager;

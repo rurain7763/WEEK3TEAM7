@@ -9,7 +9,6 @@
 #include "Camera.h"
 #include "RenderInfo.h"
 #include "Vector.h"
-#include "enum.h"
 
 class FAssetManager;
 
@@ -105,4 +104,6 @@ private:
 	float mProjectionElapsed = 0.0f;
 	float mProjectionDuration = 1.0f;
 	bool mbProjectionTransitioning = false;
+
+	TSharedPtr<FRenderPipeline> mMeshPipeline;
 };

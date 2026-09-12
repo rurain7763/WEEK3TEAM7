@@ -107,6 +107,11 @@ void AActor::AddRootSceneComponent(USceneComponent* sceneComponent)
 	AddComponent(sceneComponent);
 }
 
+USceneComponent* AActor::GetRootComponent() const
+{
+	return mRootComponent;
+}
+
 bool AActor::RemoveComponent(uint32 componentUUID)
 {
 	int32 componentIndex = getComponentIndex(componentUUID);

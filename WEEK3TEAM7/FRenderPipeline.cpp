@@ -2,10 +2,12 @@
 #include <windows.h>
 #include <d3dcompiler.h>
 #include "Renderer.h"
+#include "TMap.h"
 
-FRenderPipeline::FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext)
+FRenderPipeline::FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool)
 	: Device(InDevice)
 	, DeviceContext(InDeviceContext)
+	, SamplerStatePool(InSamplerStatePool)
 {
 }
 
@@ -181,6 +183,7 @@ void FRenderPipeline::SetShader(const FString& ShaderPath)
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 
 	Device->CreateInputLayout(Layout, ARRAYSIZE(Layout), VertexShaderCSO->GetBufferPointer(), VertexShaderCSO->GetBufferSize(), &InputLayout);
@@ -188,4 +191,36 @@ void FRenderPipeline::SetShader(const FString& ShaderPath)
 
 	VertexShaderCSO->Release();
 	PixelShaderCSO->Release();
+}
+
+void FRenderPipeline::SetShaderResource(uint32 Slot, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV)
+{
+	if (Slot >= ShaderResourceViews.Num())
+	{
+		ShaderResourceViews.SetNum(Slot + 1);
+	}
+	ShaderResourceViews[Slot] = SRV.Get();
+}
+
+void FRenderPipeline::ClearShaderResource()
+{
+	ShaderResourceViews.Empty();
+}
+
+void FRenderPipeline::SetSamplerState(uint32 Slot, D3D11_FILTER Filter, D3D11_TEXTURE_ADDRESS_MODE AddressU, D3D11_TEXTURE_ADDRESS_MODE AddressV)
+{
+	if (Slot >= SamplerStates.Num())
+	{
+		SamplerStates.SetNum(Slot + 1);
+	}
+
+	FSamplerStateKey Key{ Filter, AddressU, AddressV };
+	ID3D11SamplerState* SamplerState = SamplerStatePool->GetOrCreateSamplerState(Device, Key);
+
+	SamplerStates[Slot] = SamplerState;
+}
+
+void FRenderPipeline::ClearSamplerState()
+{
+	SamplerStates.Empty();
 }

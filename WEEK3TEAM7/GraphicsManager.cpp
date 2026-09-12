@@ -20,10 +20,19 @@ FGraphicsManager::FGraphicsManager(HWND hWindow) :
 #endif
 
 	mAspect = mRenderer->ViewportInfo.Width / mRenderer->ViewportInfo.Height;
+
+	mMeshPipeline = mRenderer->CreateRenderPipeline();
+	mMeshPipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, { EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe });
+	mMeshPipeline->SetDepthStencilState(true, true);
+	mMeshPipeline->SetShader("Assets/Shaders/Mesh.hlsl");
+	mMeshPipeline->AddConstantBuffer<FConstants>();
+	mMeshPipeline->AddConstantBuffer<FMatrix>();
 }
 
 FGraphicsManager::~FGraphicsManager()
 {
+	mMeshPipeline.reset();
+
 #if 0
 	mRenderer->ReleaseLineVertexBuffer();
 #endif
@@ -104,7 +113,29 @@ void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRender
 			continue;
 		}
 
-		mRenderer->RenderPrimitive(asset->GetVertexBuffer(), asset->GetVertexCount(), renderInfo.WorldTransformMatrix);
+		mMeshPipeline->ClearShaderResource();
+		mMeshPipeline->ClearSamplerState();
+
+		if (renderInfo.Texture)
+		{
+			FConstants Constants{};
+			Constants.Matrix = renderInfo.WorldTransformMatrix;
+			Constants.Color = FVector4(1, 1, 1, 1);
+			Constants.UseVertexColor = 0;
+			Constants.HasTexture = 1;
+
+			mMeshPipeline->UpdateConstantBuffer(0, Constants);
+			mMeshPipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+
+			mMeshPipeline->SetShaderResource(0, renderInfo.Texture->GetSRV());
+			mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+
+			mRenderer->RenderPrimitive(mMeshPipeline, asset->GetVertexBuffer(), asset->GetVertexCount());
+		}
+		else
+		{
+			mRenderer->RenderPrimitive(asset->GetVertexBuffer(), asset->GetVertexCount(), renderInfo.WorldTransformMatrix);
+		}
 	}
 }
 void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const FVector4& color)

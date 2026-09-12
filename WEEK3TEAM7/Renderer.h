@@ -14,6 +14,7 @@ struct FVertexSimple
 {
     float x, y, z;    // Position
     float r, g, b, a; // Color
+	float u, v;       // Texture coordinates
 
 	FVector GetPosition() const { return FVector(x, y, z); }
 };
@@ -23,7 +24,8 @@ struct FConstants
 	FMatrix Matrix;
 	FVector4 Color;
 	int32 UseVertexColor;
-	int32 Padding[3];
+	int32 HasTexture;
+	int32 Padding[2];
 };
 
 struct FLine2DConstants
@@ -68,6 +70,70 @@ struct FWorldGridConstants
 	FMatrix ViewProjection;
 };
 
+struct FSamplerStateKey
+{
+	D3D11_FILTER Filter;
+	D3D11_TEXTURE_ADDRESS_MODE AddressU;
+	D3D11_TEXTURE_ADDRESS_MODE AddressV;
+
+	bool operator==(const FSamplerStateKey& Other) const
+	{
+		return Filter == Other.Filter && AddressU == Other.AddressU && AddressV == Other.AddressV;
+	}
+};
+
+struct FSamplerStateKeyHash
+{
+	std::size_t operator()(const FSamplerStateKey& Key) const
+	{
+		return std::hash<int>()(static_cast<int>(Key.Filter)) ^ (std::hash<int>()(static_cast<int>(Key.AddressU)) << 1) ^ (std::hash<int>()(static_cast<int>(Key.AddressV)) << 2);
+	}
+};
+
+class FSamplerStatePool
+{
+public:
+	ID3D11SamplerState* GetOrCreateSamplerState(ID3D11Device* Device, const FSamplerStateKey& Key)
+	{
+		ID3D11SamplerState** existing = SamplerStates.Find(Key);
+		if (existing)
+		{
+			return *existing;
+		}
+
+		D3D11_SAMPLER_DESC SamplerDesc = {};
+		SamplerDesc.Filter = Key.Filter;
+		SamplerDesc.AddressU = Key.AddressU;
+		SamplerDesc.AddressV = Key.AddressV;
+		SamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+		SamplerDesc.MipLODBias = 0.0f;
+		SamplerDesc.MaxAnisotropy = 1;
+		SamplerDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+		SamplerDesc.BorderColor[0] = 0.0f;
+		SamplerDesc.BorderColor[1] = 0.0f;
+		SamplerDesc.BorderColor[2] = 0.0f;
+		SamplerDesc.BorderColor[3] = 0.0f;
+		SamplerDesc.MinLOD = 0.0f;
+		SamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+		ID3D11SamplerState* SamplerState = nullptr;
+		HRESULT Hr = Device->CreateSamplerState(&SamplerDesc, &SamplerState);
+		if (FAILED(Hr))
+		{
+			return nullptr;
+		}
+
+		SamplerStates.Add(Key, SamplerState);
+
+		return SamplerState;
+	}
+
+private:
+	friend class URenderer;
+
+	TMap<FSamplerStateKey, ID3D11SamplerState*, FSamplerStateKeyHash> SamplerStates;
+};
+
 class URenderer
 {
 public:
@@ -75,6 +141,7 @@ public:
     ID3D11DeviceContext* DeviceContext = nullptr;
     IDXGISwapChain* SwapChain = nullptr;
 
+	FSamplerStatePool SamplerStatePool;
     ID3D11Texture2D* FrameBuffer = nullptr;
     ID3D11RenderTargetView* FrameBufferRTV = nullptr;
 
@@ -148,6 +215,11 @@ public:
 
 		return VertexBuffer;
 	}
+
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> CreateTexture2D(const D3D11_TEXTURE2D_DESC& Desc, const void* InitialData = nullptr);
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateShaderResourceView(Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture, const D3D11_SHADER_RESOURCE_VIEW_DESC* Desc = nullptr);
+
+	TSharedPtr<FRenderPipeline> CreateRenderPipeline();
 
 	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const;
 

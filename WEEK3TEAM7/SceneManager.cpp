@@ -24,6 +24,7 @@
 #include "FrameTimer.h"
 #include "CubeComponent.h"
 #include "ActorComponent.h"
+#include "Assets.h"
 
 FSceneManager::FSceneManager()
 {
@@ -132,8 +133,7 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 	/*Scene Control*/
 	ImGui::SeparatorText("Scene Control");
 
-	const std::filesystem::path sceneDirectory =
-		std::filesystem::absolute(std::filesystem::path(kDefaultAssetsPath) / std::filesystem::path(kSceneDataDir));
+	const std::filesystem::path sceneDirectory = std::filesystem::absolute(std::filesystem::path(kDefaultAssetsPath) / std::filesystem::path(kSceneDataDir));
 
 	void* ownerWindow = ImGui::GetMainViewport()->PlatformHandleRaw;
 
@@ -404,6 +404,41 @@ void FSceneManager::updatePropertyWindowGUI(const FGuiReference& guiReference)
 		{
 			mSelectedActor->SetScale(scaleInput);
 		}
+
+		USceneComponent* rootComponent = mSelectedActor->GetRootComponent();
+		if (rootComponent->IsA<UPrimitiveComponent>())
+		{
+			UPrimitiveComponent* primitiveComponent = rootComponent->Cast<UPrimitiveComponent>();
+
+			TArray<FString> textureAssetNames;
+			guiReference.AssetManager->ForEachMetaInfo([&textureAssetNames](const FAssetMetaInfo& metaInfo) {
+				if (metaInfo.AssetType != EAssetType::Texture2D)
+				{
+					return;
+				}
+				textureAssetNames.Add(metaInfo.AssetName.ToString()); 
+			});
+
+			const TSharedPtr<FTexture2DAsset>& currentTexture = primitiveComponent->GetTexture();
+			FString currentTextureName = currentTexture ? currentTexture->GetAssetName().ToString() : "None";
+			if (ImGui::BeginCombo("Texture", currentTextureName.CStr()))
+			{
+				for (const FString& assetName : textureAssetNames)
+				{
+					bool isSelected = (currentTextureName == assetName);
+					if (ImGui::Selectable(assetName.CStr(), isSelected))
+					{
+						TSharedPtr<FTexture2DAsset> textureAsset = guiReference.AssetManager->GetAssetAs<FTexture2DAsset>(FName(assetName), true);
+						primitiveComponent->SetTexture(textureAsset);
+					}
+					if (isSelected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
+		}
 	}
 	ImGui::End();
 }
@@ -486,6 +521,8 @@ void FSceneManager::updateObjectListPanelGUI(const FGuiReference& guiReference)
 								bDeleteActorOrNull = object;
 							}
 						}
+
+						
 					}
 				}
 				ImGui::EndChild();

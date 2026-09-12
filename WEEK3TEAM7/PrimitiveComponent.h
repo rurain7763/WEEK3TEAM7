@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "SceneComponent.h"
-#include "FAsset.h"
+#include "Assets.h"
 
 class UPrimitiveComponent : public USceneComponent
 {
@@ -25,10 +25,14 @@ public:
 	void Update(TArray<FRenderInfo>* outRenderInfos) override final;
 	void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const override final;
 
+	inline void SetTexture(const TSharedPtr<FTexture2DAsset>& textureAsset) { mTextureAsset = textureAsset; }
+	inline const TSharedPtr<FTexture2DAsset>& GetTexture() const { return mTextureAsset; }
+
 protected:
 	//GraphicsManager* mGraphicsManager;
 	EPrimitive mePrimitive;
 	FName mMeshAssetName;
+	TSharedPtr<FTexture2DAsset> mTextureAsset;
 };
 
 

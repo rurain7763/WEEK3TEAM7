@@ -1,5 +1,25 @@
 ﻿#include "Renderer.h"
 
+namespace
+{
+	UINT GetByteSizeFromFormat(DXGI_FORMAT Format)
+	{
+		switch (Format)
+		{
+		case DXGI_FORMAT_R32G32B32A32_FLOAT:
+			return 16;
+		case DXGI_FORMAT_R32G32B32_FLOAT:
+			return 12;
+		case DXGI_FORMAT_R16G16B16A16_FLOAT:
+			return 8;
+		case DXGI_FORMAT_R8G8B8A8_UNORM:
+			return 4;
+		default:
+			return 0; // Unknown format
+		}
+	}
+}
+
 void URenderer::Create(HWND hWindow)
 {
 #if 0
@@ -12,38 +32,39 @@ void URenderer::Create(HWND hWindow)
 	CreateFrameBuffer();
 	CreateDepthStencilBuffer();
 
-	DefaultPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	DefaultPipeline = CreateRenderPipeline();
 	DefaultPipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, {EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe});
 	DefaultPipeline->SetDepthStencilState(true, true);
 	DefaultPipeline->SetShader("Assets/Shaders/Mesh.hlsl");
 	DefaultPipeline->AddConstantBuffer<FConstants>();
 	DefaultPipeline->AddConstantBuffer<FMatrix>();
+	DefaultPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 
-	Line2DPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	Line2DPipeline = CreateRenderPipeline();
 	Line2DPipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	Line2DPipeline->SetDepthStencilState(false, false);
 	Line2DPipeline->SetShader("Assets/Shaders/Line2D.hlsl");
 	Line2DPipeline->AddConstantBuffer<FLine2DConstants>();
 
-	Circle2DPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	Circle2DPipeline = CreateRenderPipeline();
 	Circle2DPipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	Circle2DPipeline->SetDepthStencilState(false, false);
 	Circle2DPipeline->SetShader("Assets/Shaders/Circle2D.hlsl");
 	Circle2DPipeline->AddConstantBuffer<FCircle2DConstants>();
 
-	Triangle2DPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	Triangle2DPipeline = CreateRenderPipeline();
 	Triangle2DPipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	Triangle2DPipeline->SetDepthStencilState(false, false);
 	Triangle2DPipeline->SetShader("Assets/Shaders/Triangle2D.hlsl");
 	Triangle2DPipeline->AddConstantBuffer<FTriangle2DConstants>();
 
-	WorldAxisPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	WorldAxisPipeline = CreateRenderPipeline();
 	WorldAxisPipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	WorldAxisPipeline->SetDepthStencilState(true, true);
 	WorldAxisPipeline->SetShader("Assets/Shaders/WorldAxis.hlsl");
 	WorldAxisPipeline->AddConstantBuffer<FWorldAxisConstants>();
 
-	WorldGridPipeline = MakeShared<FRenderPipeline>(Device, DeviceContext);
+	WorldGridPipeline = CreateRenderPipeline();
 	WorldGridPipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	WorldGridPipeline->SetDepthStencilState(true, false);
 
@@ -179,12 +200,21 @@ void URenderer::ReleaseLineVertexBuffer()
 
 void URenderer::Release()
 {
+	DeviceContext->ClearState();
+
 	WorldGridPipeline.reset();
 	WorldAxisPipeline.reset();
 	Triangle2DPipeline.reset();
 	Circle2DPipeline.reset();
 	Line2DPipeline.reset();
 	DefaultPipeline.reset();
+
+	for (auto& Pair : SamplerStatePool.SamplerStates)
+	{
+		Pair.second->Release();
+	}
+	SamplerStatePool.SamplerStates.Empty();
+
 	DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 	DepthStencilView->Release();
 	DepthStencilBuffer->Release();
@@ -212,6 +242,38 @@ void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
 	DefaultPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
 }
 
+Microsoft::WRL::ComPtr<ID3D11Texture2D> URenderer::CreateTexture2D(const D3D11_TEXTURE2D_DESC& Desc, const void* InitialData)
+{
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
+
+	if (InitialData)
+	{
+		D3D11_SUBRESOURCE_DATA TextureData = {};
+		TextureData.pSysMem = InitialData;
+		TextureData.SysMemPitch = Desc.Width * GetByteSizeFromFormat(Desc.Format);
+
+		Device->CreateTexture2D(&Desc, &TextureData, &Texture);
+	}
+	else
+	{
+		Device->CreateTexture2D(&Desc, nullptr, &Texture);
+	}
+
+	return Texture;
+}
+
+Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> URenderer::CreateShaderResourceView(Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture, const D3D11_SHADER_RESOURCE_VIEW_DESC* Desc)
+{
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV;
+	Device->CreateShaderResourceView(Texture.Get(), Desc, &SRV);
+	return SRV;
+}
+
+TSharedPtr<FRenderPipeline> URenderer::CreateRenderPipeline()
+{
+	return MakeShared<FRenderPipeline>(Device, DeviceContext, &SamplerStatePool);
+}
+
 void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const
 {
 	// RSSetState는 드로우 직전마다 갈아치워지므로 뷰 모드 선택은 여기서 해야 한다.
@@ -222,8 +284,35 @@ void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const
 	DeviceContext->IASetInputLayout(Pipeline->InputLayout);
 	DeviceContext->VSSetShader(Pipeline->VertexShader, nullptr, 0);
 	DeviceContext->PSSetShader(Pipeline->PixelShader, nullptr, 0);
-	DeviceContext->VSSetConstantBuffers(0, Pipeline->ConstantBuffers.Num(), &Pipeline->ConstantBuffers[0]);
-	DeviceContext->PSSetConstantBuffers(0, Pipeline->ConstantBuffers.Num(), &Pipeline->ConstantBuffers[0]);
+	
+	if (Pipeline->ConstantBuffers.Num())
+	{
+		DeviceContext->VSSetConstantBuffers(0, Pipeline->ConstantBuffers.Num(), &Pipeline->ConstantBuffers[0]);
+		DeviceContext->PSSetConstantBuffers(0, Pipeline->ConstantBuffers.Num(), &Pipeline->ConstantBuffers[0]);
+	}
+	else
+	{
+		DeviceContext->VSSetConstantBuffers(0, 0, nullptr);
+		DeviceContext->PSSetConstantBuffers(0, 0, nullptr);
+	}
+
+	if (Pipeline->ShaderResourceViews.Num())
+	{
+		DeviceContext->PSSetShaderResources(0, Pipeline->ShaderResourceViews.Num(), &Pipeline->ShaderResourceViews[0]);
+	}
+	else
+	{
+		DeviceContext->PSSetShaderResources(0, 0, nullptr);
+	}
+
+	if (Pipeline->SamplerStates.Num())
+	{
+		DeviceContext->PSSetSamplers(0, Pipeline->SamplerStates.Num(), &Pipeline->SamplerStates[0]);
+	}
+	else
+	{
+		DeviceContext->PSSetSamplers(0, 0, nullptr);
+	}
 }
 
 void URenderer::RSUpdateState()

@@ -6,6 +6,7 @@
 #include "TArray.h"
 #include "RenderInfo.h"
 #include "enum.h"
+#include "FAssetManager.h"
 
 inline constexpr std::string_view kSceneDataDir = "SceneData\\";
 inline constexpr std::string_view kSceneDataSuffix = ".Scene";
@@ -22,6 +23,7 @@ struct FGuiReference
 	FGraphicsManager* GraphicsManager;
 	FEditorViewportClient* ViewportClient;
 	const FFileManager* FileManager;
+	FAssetManager* AssetManager;
 };
 
 struct FGuiInputField

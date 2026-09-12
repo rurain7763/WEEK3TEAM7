@@ -276,5 +276,6 @@ bin/
 bin-int/
 
 imgui.ini
+editor.ini
 *.vcxproj
 *.vcxproj.filters

@@ -50,7 +50,7 @@ FString FFileManager::ReadFileToString(const std::filesystem::path& requestedPat
 {
     const std::filesystem::path filePath = ResolvePath(requestedPath);
 
-    std::ifstream fileStream(filePath, std::ios::in);
+    std::ifstream fileStream(filePath, std::ios::in | std::ios::binary);
 
     if (!fileStream.is_open())
     {
