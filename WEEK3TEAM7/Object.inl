@@ -7,8 +7,13 @@ public:																				\
 			#className,																\
 			superClassName::GetClass(),												\
 			[]() -> UObject* {														\
-				UObject* instance = new className();								\
-				return instance;													\
+				if constexpr (std::is_abstract_v<className>)						\
+				{																	\
+					return nullptr;													\
+				}																	\
+				else {																\
+					return new className();											\
+				}																	\
 			}																		\
 		);																			\
 		return &classInstance;														\

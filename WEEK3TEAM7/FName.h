@@ -21,3 +21,11 @@ struct FName
 	int32 ComparisonIndex;
 	uint32 Number;
 };
+
+struct FNameHasher
+{
+	std::size_t operator()(const FName& Name) const noexcept
+	{
+		return std::hash<int32>()(Name.ComparisonIndex) ^ std::hash<uint32>()(Name.Number);
+	}
+};

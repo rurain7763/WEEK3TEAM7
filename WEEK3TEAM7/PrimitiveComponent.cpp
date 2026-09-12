@@ -33,6 +33,14 @@ void UPrimitiveComponent::Initialize(EPrimitive ePrimitive, FVector location, FR
 	USceneComponent::Initialize(location, rotation, scale3D);
 
 	mePrimitive = ePrimitive;
+	switch (mePrimitive)
+	{
+		case EPrimitive::EP_Sphere:		mMeshAssetName = "SphereMesh"; break;
+		case EPrimitive::EP_Cube:		mMeshAssetName = "CubeMesh"; break;
+		case EPrimitive::EP_Triangle:	mMeshAssetName = "TriangleMesh"; break;
+		case EPrimitive::EP_GizmoArrow:	mMeshAssetName = "GizmoArrowMesh"; break;
+		case EPrimitive::EP_Circle:		mMeshAssetName = "CircleMesh"; break;
+	}
 }
 
 UPrimitiveComponent::~UPrimitiveComponent()
@@ -72,7 +80,7 @@ void UPrimitiveComponent::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) co
 {
 	assert(outRenderInfos);
 
-	outRenderInfos->Add({ mePrimitive, GetTransformMatrix().MakeMatrix(), { mOwner->UUID, mOwner->InternalIndex }, FVector4(0, 0, 0, 0) });
+	outRenderInfos->Add({ mMeshAssetName, mePrimitive, GetTransformMatrix().MakeMatrix(),{mOwner->UUID, mOwner->InternalIndex}, FVector4(0, 0, 0, 0)});
 }
 
 /*
