@@ -50,9 +50,13 @@ FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 {
 }
 
-void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio)
+void FEditorViewportClient::RayCast(FSceneManager* SceneManager, float perspectiveRatio)
 {
 	bMouseHit = false;
+
+	UWorld* World = SceneManager->GetCurrentWorld();
+	int32 MouseXInViewport = WindowApplication.Input.CursorX - SceneManager->GetViewportX();
+	int32 MouseYInViewport = WindowApplication.Input.CursorY - SceneManager->GetViewportY();
 
 	// 투영 방식에 따라 광선을 만드는 법만 다르다. 두 점을 구하고 나면 이후 판정은 완전히 같다
 	FVector NearPoint, FarPoint;
@@ -66,8 +70,7 @@ void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, 
 	//	DeprojectScreenToWorldForOrtho(WindowApplication.Input.CursorX - ViewportInfo.TopLeftX, WindowApplication.Input.CursorY - ViewportInfo.TopLeftY,
 	//		ViewportInfo.Width, ViewportInfo.Height, 0.1f, 100.f, NearPoint, FarPoint);
 	//}
-	DeprojectScreenToWorldForUnified(WindowApplication.Input.CursorX - ViewportInfo.TopLeftX, WindowApplication.Input.CursorY - ViewportInfo.TopLeftY,
-		ViewportInfo.Width, ViewportInfo.Height, 0.1f, 100.f, mCamera.mOrthoDistance, perspectiveRatio, NearPoint, FarPoint);
+	DeprojectScreenToWorldForUnified(MouseXInViewport, MouseYInViewport, SceneManager->GetViewportWidth(), SceneManager->GetViewportHeight(), 0.1f, 100.f, mCamera.mOrthoDistance, perspectiveRatio, NearPoint, FarPoint);
 
 	mRayNear = NearPoint;
 	mRayFar = FarPoint;
@@ -134,21 +137,22 @@ void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, 
 	}
 }
 
-void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio)
+void FEditorViewportClient::Update(float deltaTime, FSceneManager* sceneManager, float perspectiveRatio)
 {
 	const FInputState& Input = WindowApplication.Input;
-	ImGuiIO& io = ImGui::GetIO();
+	bool bAllowMouse = sceneManager->IsViewportHovered();
+	bool bAllowKeyboardInput = bAllowMouse && !ImGui::GetIO().WantCaptureKeyboard;
 
 	// Camera Rotate
 	// 회전을 이동보다 먼저, 이번 프레임에 돌린 방향으로 바로 움직이게
-	if (!io.WantCaptureMouse && Input.IsDown(VK_RBUTTON))
+	if (bAllowMouse && Input.IsDown(VK_RBUTTON))
 	{
 		mCamera.Rotate(Input.MouseDX, Input.MouseDY);
 	}
 
 	// Camera Velocity
 	FVector MoveDir(0.f, 0.f, 0.f);
-	if (!io.WantCaptureKeyboard)
+	if (bAllowKeyboardInput)
 	{
 		const FMatrix R = FMatrix::Rotate(mCamera.Transform.Rotation);
 		const FVector Forward = R.GetUnitAxis(EAxis::X);
@@ -169,7 +173,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 	}
 
 	//Camera Translate
-	if (!io.WantCaptureMouse && Input.MouseWheelDelta != 0.0f)
+	if (bAllowMouse && Input.MouseWheelDelta != 0.0f)
 	{
 		//키 입력이 없으면 마우스 휠은 줌인/줌아웃
 		if (!bMoveKeyDown)
@@ -204,7 +208,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 
 	mCamera.Transform.Location += mCamera.Velocity * deltaTime;
 
-	if (!io.WantCaptureKeyboard)
+	if (bAllowKeyboardInput)
 	{
 		if (Input.WasPressed(VK_SPACE))
 		{
@@ -221,8 +225,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 		}
 	}
 
-
-	RayCast(ViewportInfo, sceneManager->GetCurrentWorld(), perspectiveRatio);
+	RayCast(sceneManager, perspectiveRatio);
 
 	//RayCast
 
@@ -232,7 +235,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 	//	mClickedActor->BeginFrame();
 	//}
 
-    if (!io.WantCaptureMouse && Input.WasPressed(VK_LBUTTON) && !mGizmo.IsDragging() && !mGizmo.IsMouseOverHandle())
+    if (bAllowMouse && Input.WasPressed(VK_LBUTTON) && !mGizmo.IsDragging() && !mGizmo.IsMouseOverHandle())
     {
         AActor* Hit = nullptr;
         if (IsMouseHit())
@@ -254,7 +257,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 		}
     }
 
-	mGizmo.Update(sceneManager->GetSelectedActor());
+	mGizmo.Update(sceneManager);
 }
 
 bool FEditorViewportClient::RayIntersectsTriangle(const FVector& Origin, const FVector& Dir, const FVector& V0, const FVector& V1, const FVector& V2, float& OutT, float& OutU, float& OutV)

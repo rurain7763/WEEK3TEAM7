@@ -20,7 +20,11 @@ struct FVector2
 
 	FVector2 operator+(const FVector2& Other) const { return { X + Other.X, Y + Other.Y }; }
 	FVector2 operator-(const FVector2& Other) const { return { X - Other.X, Y - Other.Y }; }
+	FVector2 operator*(const FVector2& Other) const { return { X * Other.X, Y * Other.Y }; }
+	FVector2 operator/(const FVector2& Other) const { return { X / Other.X, Y / Other.Y }; }
+	FVector2 operator/(float Scalar) const { return { X / Scalar, Y / Scalar }; }
 	FVector2 operator*(float Scalar) const { return { X * Scalar, Y * Scalar }; }
+	FVector2& operator*=(const FVector2& Other) { X *= Other.X; Y *= Other.Y; return *this; }
 	FVector2& operator/=(float Scalar) { X /= Scalar; Y /= Scalar; return *this; }
 
 	static float LengthSquared(const FVector2& A, const FVector2& B) 

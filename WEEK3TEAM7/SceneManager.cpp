@@ -1,5 +1,4 @@
-﻿
-#include "SceneManager.h"
+﻿#include "SceneManager.h"
 
 #include <algorithm>
 #include <format>
@@ -18,6 +17,7 @@
 #include "FLogManager.h"
 
 #include "ImGui/imgui.h"
+#include "ImGui/imgui_internal.h"
 #include "ImGui/imgui_impl_dx11.h"
 #include "imGui/imgui_impl_win32.h"
 
@@ -26,10 +26,14 @@
 #include "ActorComponent.h"
 #include "WindowApplication.h"
 
+#include "Cube.h"
+
 FSceneManager::FSceneManager()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	mPanelWidth = io.DisplaySize.x * MIN_WIDTH_RATIO;
+	mViewportX = 0;
+	mViewportY = 0;
 	mViewportWidth = WindowApplication.PendingWidth;
 	mViewportHeight = WindowApplication.PendingHeight;
 
@@ -73,10 +77,48 @@ void FSceneManager::UpdateGUI(const FGuiReference& guiReference)
 
 	{
 		// Docking
-		ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		const ImGuiID dockspaceID = ImGui::GetID("EditorDockSpace");
 
+		const ImGuiDockNodeFlags flags = ImGuiDockNodeFlags_PassthruCentralNode;
+
+		// 저장된 도킹 노드가 없을 때만 기본 배치 생성
+		if (!ImGui::DockBuilderGetNode(dockspaceID))
+		{
+			ImGui::DockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags_DockSpace | flags);
+			ImGui::DockBuilderSetNodeSize(dockspaceID, viewport->WorkSize);
+
+			ImGuiID center = dockspaceID;
+			ImGuiID left;
+			ImGuiID bottom;
+
+			// 왼쪽 패널 2%
+			ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.2f, &left, &center);
+
+			// 나머지 영역 아래쪽에 콘솔 30%
+			ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.3f, &bottom, &center);
+
+			ImGuiID leftTop;
+			ImGuiID leftRest;
+			ImGui::DockBuilderSplitNode(left, ImGuiDir_Up, 0.4f, &leftTop, &leftRest);
+
+			ImGuiID leftMiddle;
+			ImGuiID leftBottom;
+			ImGui::DockBuilderSplitNode(leftRest, ImGuiDir_Up, 0.5f, &leftMiddle, &leftBottom);
+
+			ImGui::DockBuilderDockWindow("Viewport", center);
+			ImGui::DockBuilderDockWindow("Console Window", bottom);
+			ImGui::DockBuilderDockWindow("Jungle Control Panel", leftTop);
+			ImGui::DockBuilderDockWindow("Jungle Property Window", leftMiddle);
+			ImGui::DockBuilderDockWindow("Object List Panel", leftBottom);
+
+			ImGui::DockBuilderFinish(dockspaceID);
+		}
+
+		ImGui::DockSpaceOverViewport(dockspaceID, viewport, flags);
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 
+		mbViewportHovered = false;
 		if (ImGui::Begin("Viewport"))
 		{
 			const ImVec2 size = ImGui::GetContentRegionAvail();
@@ -85,12 +127,15 @@ void FSceneManager::UpdateGUI(const FGuiReference& guiReference)
 			{
 				const TSharedPtr<FRenderTarget2D>& sceneRenderTarget = guiReference.GraphicsManager->GetSceneRenderTarget();
 				ImGui::Image((ImTextureID)(intptr_t)sceneRenderTarget->SRV.Get(), size);
+				mbViewportHovered = ImGui::IsItemHovered();
 
 				const ImVec2 imageMin = ImGui::GetItemRectMin();
 				const ImVec2 imageMax = ImGui::GetItemRectMax();
 
-				mViewportWidth = imageMax.x - imageMin.x;
-				mViewportHeight = imageMax.y - imageMin.y;
+				mViewportX = imageMin.x;
+				mViewportY = imageMin.y;
+				mViewportWidth = size.x;
+				mViewportHeight = size.y;
 			}
 		}
 		ImGui::End();

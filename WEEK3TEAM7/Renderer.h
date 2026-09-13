@@ -73,12 +73,16 @@ struct FRenderTarget2D
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
 	Microsoft::WRL::ComPtr<ID3D11RenderTargetView> RTV;
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV;
+	UINT Width;
+	UINT Height;
 };
 
 struct FDepthStencil
 {
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
 	Microsoft::WRL::ComPtr<ID3D11DepthStencilView> DSV;
+	UINT Width;
+	UINT Height;
 };
 
 class URenderer
@@ -146,9 +150,6 @@ public:
 	void RenderWorldGrid(const FMatrix& ViewProjection) const;
 
 	void SwapBuffer();
-
-	//Initialize
-	void ClearDepth();
 
 	//=============================================
 	//해상도 변경 시 호출

@@ -136,7 +136,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 		WindowApplication.ProcessDeferredEvents();
 
 		mGraphicsManager->UpdateProjectionTransition(deltaTime);
-		ViewportClient->Update(deltaTime, mGraphicsManager->GetRenderer()->GetViewport(), mSceneManager, mGraphicsManager->GetPerspectiveRatio());
+		ViewportClient->Update(deltaTime, mSceneManager, mGraphicsManager->GetPerspectiveRatio());
 	}
 
 	//Physics Threads
@@ -155,17 +155,18 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	{
 		if (WindowApplication.bPendingResize)
 		{
-			mGraphicsManager->GetRenderer()->OnResize(WindowApplication.PendingWidth, WindowApplication.PendingHeight);
+			mGraphicsManager->OnResize(WindowApplication.PendingWidth, WindowApplication.PendingHeight);
 			WindowApplication.bPendingResize = false;
 		}
 
 		mGraphicsManager->Update(deltaTime);
 		mGraphicsManager->Prepare(&ViewportClient->mCamera, mSceneManager->GetViewportWidth(), mSceneManager->GetViewportHeight());
-		mGraphicsManager->Render(mAssetManager, mSceneManager->GetRenderInfos());
 
 		//월드 축. 액터 뒤에 그려서 같은 깊이 버퍼로 가려지게 한다 (기즈모와 달리 깊이를 지우지 않는다)
 		mGraphicsManager->DrawWorldAxis();
 		mGraphicsManager->FlushLines();
+
+		mGraphicsManager->Render(mAssetManager, mSceneManager->GetRenderInfos());
 
 		//강조
 		if (mSceneManager->GetSelectedActor())
@@ -175,7 +176,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			mGraphicsManager->RenderHighLight(clickedRenderInfo);
 		}
 
-		ViewportClient->mGizmo.Draw(mSceneManager->GetSelectedActor(), ViewportClient->mCamera.Transform.Location, mGraphicsManager->GetViewProjectionMatrix());
+		ViewportClient->mGizmo.Render(mSceneManager, ViewportClient->mCamera.Transform.Location, mGraphicsManager->GetViewProjectionMatrix());
 
 		//ImGui
 		{

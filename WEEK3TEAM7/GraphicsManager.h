@@ -54,6 +54,7 @@ public:
 
 	// Todo: Change name
 	URenderer* GetRenderer() const;
+	void OnResize(UINT width, UINT height);
 
 	//Highlight
 	//Line batch

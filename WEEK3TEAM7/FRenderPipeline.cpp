@@ -75,6 +75,7 @@ void FRenderPipeline::SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthB
 	RasterizerDesc.CullMode = CullMode;
 	RasterizerDesc.DepthBias = static_cast<INT>(DepthBias);
 	RasterizerDesc.SlopeScaledDepthBias = DepthBias != 0 ? 1.0f : 0.0f;
+	RasterizerDesc.DepthClipEnable = TRUE;
 
 	Device->CreateRasterizerState(&RasterizerDesc, &RasterizerState);
 }

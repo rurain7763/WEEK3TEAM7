@@ -6,6 +6,12 @@
 #include "MathUtility.h"
 #include <functional>
 
+template <typename T>
+inline T Map(T Value, T InMin, T InMax, T OutMin, T OutMax)
+{
+	return (Value - InMin) / (InMax - InMin) * (OutMax - OutMin) + OutMin;
+}
+
 inline float PointToLineSegmentDistanceSquared(const FVector2& Point, const FVector2& LineStart, const FVector2& LineEnd)
 {
 	FVector2 LineVec = LineEnd - LineStart;
@@ -75,14 +81,14 @@ inline void GenerateCircleVertices(const std::function<void(int32 Index, const F
 	}
 }
 
-inline FVector2 WorldToScreen(const FVector& WorldPos, const FMatrix& ViewProjection, int32 ScreenWidth, int32 ScreenHeight)
+inline FVector2 WorldToScreen(const FVector& WorldPos, const FMatrix& ViewProjection, float ScreenWidth, float ScreenHeight)
 {
 	const FVector4 ClipSpacePos = FVector4(WorldPos, 1.f) * ViewProjection;
 
 	FVector2 NdcPos(ClipSpacePos.x / ClipSpacePos.w, ClipSpacePos.y / ClipSpacePos.w);
 	FVector2 ScreenPos(
-		(NdcPos.X + 1.0f) * 0.5f * ScreenWidth,
-		(1.0f - (NdcPos.Y + 1.0f) * 0.5f) * ScreenHeight
+		((NdcPos.X + 1.0f) * 0.5f * ScreenWidth),
+		((1.0f - (NdcPos.Y + 1.0f) * 0.5f) * ScreenHeight)
 	);
 
 	return ScreenPos;

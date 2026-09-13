@@ -98,8 +98,6 @@ void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRender
 
 	for (const FRenderInfo& renderInfo : renderInfos)
 	{
-		//mRenderer->UpdateConstant(renderInfo.WorldTransformMatrix, mViewProjectionMatrix, renderInfo.Color);
-
 		TSharedPtr<FStaticMeshAsset> asset = mAssetManager->GetAssetAs<FStaticMeshAsset>(renderInfo.StaticMeshName);
 		if (!asset)
 		{
@@ -187,7 +185,6 @@ void FGraphicsManager::FlushLines()
 
 void FGraphicsManager::RenderOverlay(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos) //깊이버퍼 초기화
 {
-	mRenderer->ClearDepth();
 	Render(AssetManager, renderInfos);
 }
 /*
@@ -207,7 +204,6 @@ void FGraphicsManager::Display()
 
 void FGraphicsManager::Update(float deltaTime)
 {
-	mAspect = mRenderer->GetWidth() / static_cast<float>(mRenderer->GetHeight());
 }
 
 bool FGraphicsManager::IsPerspectiveProjection() const
@@ -225,6 +221,26 @@ URenderer* FGraphicsManager::GetRenderer() const
 	assert(mRenderer != nullptr);
 
 	return mRenderer;
+}
+
+void FGraphicsManager::OnResize(UINT width, UINT height)
+{
+	if (width == 0 || height == 0)
+	{
+		return;
+	}
+
+	if (mSceneRenderTarget)
+	{
+		mSceneRenderTarget = mRenderer->CreateRenderTarget2D(width, height, DXGI_FORMAT_R8G8B8A8_UNORM);
+	}
+	
+	if (mSceneDepthStencil)
+	{
+		mSceneDepthStencil = mRenderer->CreateDepthStencil(width, height);
+	}
+
+	mRenderer->OnResize(width, height);
 }
 
 FVector FGraphicsManager::GetPrimitiveCenter(EPrimitive type)
