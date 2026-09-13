@@ -32,6 +32,16 @@ void URenderer::Create(HWND hWindow)
 	CreateFrameBuffer();
 	CreateDepthStencilBuffer();
 
+	CD3D11_BLEND_DESC AlphaBlendDesc = {};
+	AlphaBlendDesc.RenderTarget[0].BlendEnable = TRUE;
+	AlphaBlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	AlphaBlendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	AlphaBlendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	AlphaBlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	AlphaBlendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	AlphaBlendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	AlphaBlendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
 	DefaultPipeline = CreateRenderPipeline();
 	DefaultPipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, {EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe});
 	DefaultPipeline->SetDepthStencilState(true, true);
@@ -67,20 +77,18 @@ void URenderer::Create(HWND hWindow)
 	WorldGridPipeline = CreateRenderPipeline();
 	WorldGridPipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	WorldGridPipeline->SetDepthStencilState(true, false);
-
-	CD3D11_BLEND_DESC BlendDesc = {};
-	BlendDesc.RenderTarget[0].BlendEnable = TRUE;
-	BlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-	BlendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-	BlendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-	BlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-	BlendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-	BlendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-	BlendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-	WorldGridPipeline->SetBlendState(BlendDesc);
-
+	WorldGridPipeline->SetBlendState(AlphaBlendDesc);
 	WorldGridPipeline->SetShader("Assets/Shaders/WorldGrid.hlsl");
 	WorldGridPipeline->AddConstantBuffer<FWorldGridConstants>();
+
+	QuadPipeline = CreateRenderPipeline();
+	QuadPipeline->SetRasterRizerState(D3D11_CULL_NONE);
+	QuadPipeline->SetDepthStencilState(true, true);
+	QuadPipeline->SetBlendState(AlphaBlendDesc);
+	QuadPipeline->SetShader("Assets/Shaders/Quad.hlsl");
+	QuadPipeline->AddConstantBuffer<FQuadConstants>();
+	QuadPipeline->AddConstantBuffer<FMatrix>();
+	QuadPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 #endif
 }
 
@@ -240,6 +248,7 @@ void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
 	DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
 
 	DefaultPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
+	QuadPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
 }
 
 Microsoft::WRL::ComPtr<ID3D11Texture2D> URenderer::CreateTexture2D(const D3D11_TEXTURE2D_DESC& Desc, const void* InitialData)
@@ -373,6 +382,20 @@ void URenderer::RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mView
 }
 #endif
 
+void URenderer::RenderQuad(const FMatrix& Model, const FVector4& Color, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV, const FVector4& SubUV, uint32 TextureColorMask) const
+{
+	QuadPipeline->ClearShaderResource();
+	QuadPipeline->SetShaderResource(0, TextureSRV);
+
+	BindPipeline(QuadPipeline);
+
+	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Model, Color, SubUV, TextureColorMask });
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);
+	DeviceContext->Draw(6, 0);
+}
+
 void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const
 {
 	BindPipeline(Pipeline);
@@ -440,9 +463,9 @@ void URenderer::RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, 
 	DeviceContext->Draw(6, 0);
 }
 
-void URenderer::RenderWorldGrid(const FMatrix& ViewProjection) const
+void URenderer::RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation) const
 {
-	WorldGridPipeline->UpdateConstantBuffer(0, FWorldGridConstants{ ViewProjection });
+	WorldGridPipeline->UpdateConstantBuffer(0, FWorldGridConstants{ ViewProjection, CameraLocation });
 
 	BindPipeline(WorldGridPipeline);
 

@@ -6,7 +6,8 @@
 enum class EAssetType
 {
 	StaticMesh,
-	Texture2D
+	Texture2D,
+	Font
 };
 
 class FAsset

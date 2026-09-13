@@ -5,6 +5,8 @@
 #include "FLogManager.h"
 #include "FAssetManager.h"
 #include "Assets.h"
+#include "ObjectFactory.h"
+#include "UTextComponent.h"
 
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
 static constexpr uint32 LINE_VERTEX_CAPACITY = 8192;
@@ -137,7 +139,26 @@ void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRender
 			mRenderer->RenderPrimitive(asset->GetVertexBuffer(), asset->GetVertexCount(), renderInfo.WorldTransformMatrix);
 		}
 	}
+
+	// NOTE: 텍스트 렌더링 테스트
+	static bool bTextInited = false;
+	static TArray<FRenderQuadInfo> RenderQuadInfos;
+	if (!bTextInited)
+	{
+		UTextComponent textComponent;
+		textComponent.Initialize(FVector(0.f, 0.f, 5.f), FRotator(0.f, 0.f, 0.f), FVector(1.f, 1.f, 1.f));
+		textComponent.SetText(L"Hello, World!\nTEST TEST TEST TEST TEST TEST\n안녕하세요 안녕하세요 안녕하세요 안녕하세요 안녕하세요");
+		textComponent.SetFontAtlasAsset(mAssetManager->GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
+		textComponent.GetRenderQuadInfos(RenderQuadInfos);
+		bTextInited = true;
+	}
+
+	for (const FRenderQuadInfo& quadInfo : RenderQuadInfos)
+	{
+		mRenderer->RenderQuad(quadInfo.Model, quadInfo.Color, quadInfo.TextureSRV, quadInfo.SubUV, 0x000000FF);
+	}
 }
+
 void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const FVector4& color)
 {
 	// 월드 좌표 그대로 넣는다. 그래서 그릴 때 World 행렬이 단위행렬이다
@@ -185,7 +206,7 @@ void FGraphicsManager::DrawWorldAxis()
 	}
 #else
 	mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 2.f);
-	mRenderer->RenderWorldGrid(mViewUnifiedProjectionMatrix);
+	mRenderer->RenderWorldGrid(mViewUnifiedProjectionMatrix, mCameraLocation);
 #endif
 }
 

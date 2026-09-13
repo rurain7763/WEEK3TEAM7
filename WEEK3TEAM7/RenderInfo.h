@@ -14,3 +14,12 @@ struct FRenderInfo
 	FObjectID ObejctID;
 	FVector4 Color;
 };
+
+struct FRenderQuadInfo
+{
+	FMatrix Model;
+	FVector4 Color;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV;
+	FVector4 SubUV;
+};
+

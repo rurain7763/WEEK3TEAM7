@@ -17,7 +17,12 @@ project "WEEK3TEAM7"
     includedirs {
         ".",
         "ImGui",
-        "Json"
+        "Json",
+        "%{wks.location}/Vendor/include",
+    }
+
+    libdirs {
+        "%{wks.location}/Vendor/lib/%{cfg.buildcfg}",
     }
 
     links {
@@ -36,11 +41,17 @@ project "WEEK3TEAM7"
     filter "configurations:Debug"
         runtime "Debug"
         symbols "On"
+        links { 
+            "freetyped" 
+        }
 
     filter "configurations:Release"
         runtime "Release"
         optimize "Off"
         symbols "On"
+        links { 
+            "freetype" 
+        }
 
     filter "system:windows"
         defines {

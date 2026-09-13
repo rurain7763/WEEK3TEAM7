@@ -81,6 +81,7 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 
 	mSceneManager = new FSceneManager();
 	mFileManager = new FFileManager();
+	mFontManager = new FFontManager();
 	InitAssetManager();
 
 	mSceneManager->NewScene();
@@ -122,9 +123,17 @@ void FEngineLoop::InitAssetManager()
 	mAssetManager->RegisterAsset(gizmoArrowAsset);
 
 	TSharedPtr<FTexture2DAssetLoader> TextureLoader = MakeShared<FTexture2DAssetLoader>(*renderer);
+	TSharedPtr<FFontAssetLoader> FontLoader = MakeShared<FFontAssetLoader>(*mFontManager);
 
 	TSharedPtr<FFileAssetSource> FileAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Textures/Test.jpg");
 	mAssetManager->RegisterAsset(FName("TestTexture"), TextureLoader, FileAssetSource);
+
+	TSharedPtr<FFileAssetSource> FontAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Fonts/BMKkubulimTTF.ttf");
+	mAssetManager->RegisterAsset(FName("TestFont"), FontLoader, FontAssetSource);
+	
+	TSharedPtr<FFontAsset> TestFontAsset = mAssetManager->GetAssetAs<FFontAsset>(FName("TestFont"), true);
+	TSharedPtr<FFontAtlasAsset> FontAtlasAsset = MakeShared<FFontAtlasAsset>(FName("TestFontAtlas"), *renderer, TestFontAsset, 512, 512, 2, 2);
+	mAssetManager->RegisterAsset(FontAtlasAsset);
 }
 
 void FEngineLoop::Tick(bool bPumpMessages)
@@ -174,12 +183,13 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 		mGraphicsManager->Update(deltaTime);
 		mGraphicsManager->Prepare(&ViewportClient->mCamera);
-		mGraphicsManager->Render(mAssetManager, mSceneManager->GetRenderInfos());
-		
 
-		//월드 축. 액터 뒤에 그려서 같은 깊이 버퍼로 가려지게 한다 (기즈모와 달리 깊이를 지우지 않는다)
 		mGraphicsManager->DrawWorldAxis();
 		mGraphicsManager->FlushLines();
+
+		mGraphicsManager->Render(mAssetManager, mSceneManager->GetRenderInfos());
+		
+		//월드 축. 액터 뒤에 그려서 같은 깊이 버퍼로 가려지게 한다 (기즈모와 달리 깊이를 지우지 않는다)
 
 		//강조
 		if (mSceneManager->GetSelectedActor())
@@ -224,6 +234,7 @@ void FEngineLoop::End()
 	delete mSceneManager;
 	delete mFileManager;
 	delete mAssetManager;
+	delete mFontManager;
 
 	delete mGraphicsManager;
 }

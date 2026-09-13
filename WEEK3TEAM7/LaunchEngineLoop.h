@@ -9,6 +9,7 @@
 #include "Renderer.h"
 #include "World.h"
 #include "FAssetManager.h"
+#include "FFontManager.h"
 
 #include <d3d11.h>
 
@@ -39,6 +40,7 @@ private:
 	FSceneManager* mSceneManager;
 	FFileManager* mFileManager;
 	FAssetManager* mAssetManager;
+	FFontManager* mFontManager;
 };
 
 inline FEngineLoop GEngineLoop;

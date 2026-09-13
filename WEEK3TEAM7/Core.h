@@ -28,6 +28,8 @@ TSharedPtr<T> MakeShared(Args&&... args)
 template <typename T, typename K>
 using TPair = std::pair<T, K>;
 
+constexpr float WorldUnitPerPixel = 1.0f / 100.0f; // 100 pixels = 1 world unit
+
 struct FString
 {
 public:

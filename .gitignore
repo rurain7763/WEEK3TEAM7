@@ -280,4 +280,4 @@ editor.ini
 *.vcxproj
 *.vcxproj.filters
 
-!Assets/Textures/**
+!Assets/**
