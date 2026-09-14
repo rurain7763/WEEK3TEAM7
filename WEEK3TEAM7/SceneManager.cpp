@@ -53,14 +53,14 @@ FSceneManager::~FSceneManager()
 	delete mCurrentWorld;
 }
 
-void FSceneManager::Update(float delaTime)
+void FSceneManager::Update(float deltaTime, FRenderCollector& outCollector)
 {
 	// Todo: Save / Load
 	{
 
 	}
 
-	mCurrentWorld->Update();
+	mCurrentWorld->Update(outCollector);
 }
 
 void FSceneManager::UpdateGUI(const FGuiReference& guiReference)
@@ -747,16 +747,6 @@ void  FSceneManager::SetSelectedActor(AActor* actor)
 float FSceneManager::GetPanelWidth() const
 {
 	return mPanelWidth;
-}
-
-const TArray<FRenderInfo> FSceneManager::GetRenderInfos() const
-{
-	if (mCurrentWorld)
-	{
-		return mCurrentWorld->GetRenderInfos();
-	}
-
-	return TArray<FRenderInfo>();
 }
 
 const TArray<FRenderInfo> FSceneManager::GetAxisRenderInfos()

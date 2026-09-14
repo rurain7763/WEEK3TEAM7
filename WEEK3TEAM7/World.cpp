@@ -81,18 +81,14 @@ bool UWorld::RemoveActor(uint32 componentUUID)
 	return true;
 }
 
-const TArray<FRenderInfo> UWorld::GetRenderInfos()
+void UWorld::Update(FRenderCollector& outCollector)
 {
-	return mRenderInfos;
-}
-
-void UWorld::Update()
-{
-	mRenderInfos.Reset(DEFAULT_RESERVE_MEM);
+	// 쿼드 정보는 뷰포트가 채우고 Render()가 비우므로 여기서 건드리지 않는다
+	outCollector.RenderInfos.Reset(DEFAULT_RESERVE_MEM);
 
 	for (AActor* actor : mActors)
 	{
-		actor->Update(&mRenderInfos);
+		actor->Update(&outCollector.RenderInfos);
 	}
 }
 

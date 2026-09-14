@@ -90,7 +90,7 @@ void FGraphicsManager::GizmoPrepare()
 	mRenderer->RSUpdateState();
 
 }
-void FGraphicsManager::Render(const TArray<FRenderInfo> renderInfos)
+void FGraphicsManager::Render()
 {
 	FMatrix viewProjection;
 	//if (mbPerspectiveProjection)
@@ -104,7 +104,7 @@ void FGraphicsManager::Render(const TArray<FRenderInfo> renderInfos)
 
 	viewProjection = mViewUnifiedProjectionMatrix;
 
-	for (const FRenderInfo& renderInfo : renderInfos)
+	for (const FRenderInfo& renderInfo : mRenderCollector.RenderInfos)
 	{
 		//mRenderer->UpdateConstant(renderInfo.WorldTransformMatrix, mViewProjectionMatrix, renderInfo.Color);
 
@@ -140,11 +140,11 @@ void FGraphicsManager::Render(const TArray<FRenderInfo> renderInfos)
 		}
 	}
 
-	for (const FRenderQuadInfo& QuadInfo : mRenderQuadInfos)
+	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.QuadInfos)
 	{
 		mRenderer->RenderQuad(QuadInfo);
 	}
-	mRenderQuadInfos.Empty();
+	mRenderCollector.QuadInfos.Empty();
 }
 
 void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const FVector4& color)

@@ -19,12 +19,12 @@ public:
 	void AddActor(AActor* actor);
 	bool RemoveActor(uint32 componentUUID);
 
-	const TArray<FRenderInfo> GetRenderInfos();
+
 	TArray<AActor*>& GetActors() { return mActors; }
 
-	void Update();
+	void Update(FRenderCollector& outCollector);
 	//void Render();
-	void ClearRenderInfos();
+
 
 private:
 	int32 getActorIndex(uint32 actorUUID) const;
@@ -38,6 +38,6 @@ private:
 	// Todo: Must reserve
 	TArray<AActor*> mActors;
 
-	// Todo: Maybe, move to FSceneManager
-	TArray<FRenderInfo> mRenderInfos;
+
+
 };

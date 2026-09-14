@@ -16,9 +16,9 @@ struct FEditorViewportClient
 public:
 	FEditorViewportClient(URenderer& InRenderer);
 
-	void RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio);
+	void RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio, const TArray<FRenderInfo>& RenderInfos);
 	float GetFov() const { return mCamera.mFovDegree; }
-	void Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio, TArray<FRenderQuadInfo>& RenderQuadInfos);
+	void Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio, FRenderCollector& RenderCollector);
 	bool IsMouseHit() const { return bMouseHit; }
 
 	void Reset();

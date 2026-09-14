@@ -148,7 +148,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	float deltaTime = FrameTimer->GetDeltaTime();
 	ConsoleWindow& console = ConsoleWindow::Get();
 
-	TArray<FRenderQuadInfo>& RenderInfos = mGraphicsManager->GetRenderQuadInfos();
+	FRenderCollector& RenderCollector = mGraphicsManager->GetRenderCollector();
 
 	//Input Threads
 	{
@@ -160,7 +160,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 		}
 
 		mGraphicsManager->UpdateProjectionTransition(deltaTime);
-		ViewportClient->Update(deltaTime, mGraphicsManager->GetRenderer()->ViewportInfo, mSceneManager, mGraphicsManager->GetPerspectiveRatio(), RenderInfos);
+		ViewportClient->Update(deltaTime, mGraphicsManager->GetRenderer()->ViewportInfo, mSceneManager, mGraphicsManager->GetPerspectiveRatio(), RenderCollector);
 	}
 
 	//Physics Threads
@@ -172,7 +172,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	{
 		// 레이캐스트보다 먼저 돌려야 한다.
 		// 여기서 RenderInfos 가 갱신되고, RayCast 가 그걸 읽는다.
-		mSceneManager->Update(deltaTime);
+		mSceneManager->Update(deltaTime, RenderCollector);
 	}
 
 	//Render Threads
@@ -192,7 +192,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 		mGraphicsManager->DrawWorldAxis();
 		mGraphicsManager->FlushLines();
 
-		mGraphicsManager->Render(mSceneManager->GetRenderInfos());
+		mGraphicsManager->Render();
 		
 		//월드 축. 액터 뒤에 그려서 같은 깊이 버퍼로 가려지게 한다 (기즈모와 달리 깊이를 지우지 않는다)
 

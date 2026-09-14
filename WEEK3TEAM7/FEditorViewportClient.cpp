@@ -59,7 +59,7 @@ FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	}
 }
 
-void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio)
+void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio, const TArray<FRenderInfo>& RenderInfos)
 {
 	bMouseHit = false;
 
@@ -105,7 +105,7 @@ void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, 
 #endif
 
 	// Object 탐색
-	const TArray<FRenderInfo> RenderInfos = World->GetRenderInfos();
+
 	for (const FRenderInfo& RI : RenderInfos)
 	{
 		const FVertexSimple* vertices = nullptr;
@@ -143,7 +143,7 @@ void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, 
 	}
 }
 
-void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio, TArray<FRenderQuadInfo>& RenderQuadInfos)
+void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio, FRenderCollector& RenderCollector)
 {
 	const FInputState& Input = WindowApplication.Input;
 	ImGuiIO& io = ImGui::GetIO();
@@ -231,7 +231,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 	}
 
 
-	RayCast(ViewportInfo, sceneManager->GetCurrentWorld(), perspectiveRatio);
+	RayCast(ViewportInfo, sceneManager->GetCurrentWorld(), perspectiveRatio, RenderCollector.RenderInfos);
 
 	//RayCast
 
@@ -280,7 +280,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 				PlaneComponent.SetBillboard(true);
 				PlaneComponent.SetTextureAsset(SpotLightTexture);
 				PlaneComponent.SetDepthState(true, true);
-				PlaneComponent.BuildRenderQuadInfos(mCamera, RenderQuadInfos);
+				PlaneComponent.BuildRenderQuadInfos(mCamera, RenderCollector.QuadInfos);
 			}
 		}
 	}
@@ -297,7 +297,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 		textComponent.SetText(Utf2Wide(std::format("UUID: {}", SelectedActor->UUID)));
 		textComponent.SetFontAtlasAsset(FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
 		textComponent.SetDepthState(false, true);
-		textComponent.BuildRenderQuadInfos(mCamera, RenderQuadInfos);
+		textComponent.BuildRenderQuadInfos(mCamera, RenderCollector.QuadInfos);
 	}
 
 	mGizmo.Update(SelectedActor);

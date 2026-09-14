@@ -30,7 +30,7 @@ public:
 
 	//void Render(FTransform worldTransformMatrix, EPrimitive ePrimitive); // FRenderInfo
 	//void Render(const TArray<FRenderInfo> renderInfos);
-	void Render(const TArray<FRenderInfo> renderInfos);
+	void Render();
 	//void RenderOverlay(const TArray<FRenderInfo> renderInfos); //깊이버퍼 초기화
 	// FRenderInfo
 
@@ -73,7 +73,9 @@ public:
 	bool IsOrthographicTarget() const;
 	void UpdateProjectionTransition(float deltaTime);
 
-	inline TArray<FRenderQuadInfo>& GetRenderQuadInfos() { return mRenderQuadInfos; }
+	inline FRenderCollector& GetRenderCollector() { return mRenderCollector; }
+	inline TArray<FRenderQuadInfo>& GetRenderQuadInfos() { return mRenderCollector.QuadInfos; }
+	inline TArray<FRenderInfo>& GetRenderInfos() { return mRenderCollector.RenderInfos; }
 
 private:
 	URenderer* mRenderer;
@@ -108,5 +110,6 @@ private:
 
 	TSharedPtr<FRenderPipeline> mMeshPipeline;
 
-	TArray<FRenderQuadInfo> mRenderQuadInfos;
+	// 메시·쿼드 렌더 정보를 함께 들고 있다. 월드와 뷰포트가 여기에 채워 넣는다.
+	FRenderCollector mRenderCollector;
 };
