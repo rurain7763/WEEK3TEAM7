@@ -26,6 +26,8 @@ struct FClassInfo
 
 	UObject* CreateInstance() const;
 
+	bool IsChildOf(const FClassInfo* other) const;
+
 private:
 };
 

@@ -1,16 +1,80 @@
 #pragma once
 
 #include "SceneComponent.h"
+#include "PrimitiveComponent.h"
 #include "Assets.h"
+#include "Camera.h"
 
-class UTextComponent : public USceneComponent
+class USpotLightComponent : public USceneComponent
 {
-	REFLECT_CLASS(UTextComponent, USceneComponent)
+	REFLECT_CLASS(USpotLightComponent, USceneComponent)
 
 public:
-	UTextComponent() = default;
+	USpotLightComponent() = default;
+};
 
-	inline void GetRenderQuadInfos(TArray<FRenderQuadInfo>& OutRenderQuadInfos) const
+class UPlaneComponent : public UPrimitiveComponent
+{
+	REFLECT_CLASS(UPlaneComponent, UPrimitiveComponent)
+
+public:
+	UPlaneComponent() = default;
+
+	inline void BuildRenderQuadInfos(const FCamera& Camera, TArray<FRenderQuadInfo>& OutRenderQuadInfos) const
+	{
+		FTransform PivotTransform = GetTransformMatrix();
+
+		FVector CameraForward = Camera.GetForwardVector();
+		FVector CameraRight = Camera.GetRightVector();
+		FVector CameraUp = Camera.GetUpVector();
+
+		FRenderQuadInfo QuadInfo;
+
+		if (mbBillboard)
+		{
+			FMatrix BillboardMatrix = FMatrix(
+				FVector4(CameraForward.x, CameraForward.y, CameraForward.z, 0.f),
+				FVector4(CameraRight.x, CameraRight.y, CameraRight.z, 0.f),
+				FVector4(CameraUp.x, CameraUp.y, CameraUp.z, 0.f),
+				FVector4(0.f, 0.f, 0.f, 1.f)
+			);
+
+			QuadInfo.Model = FMatrix::Scale(PivotTransform.Scale) * BillboardMatrix * FMatrix::Translation(PivotTransform.Location);
+		}
+		else
+		{
+			QuadInfo.Model = PivotTransform.MakeMatrix();
+		}
+
+		QuadInfo.Color = FVector4(1.f, 1.f, 1.f, 1.f);
+		QuadInfo.TextureSRV = mTextureAsset ? mTextureAsset->GetSRV() : nullptr;
+		QuadInfo.EnableDepthTest = mEnableDepthTest;
+		QuadInfo.EnableDepthWrite = mEnableDepthWrite;
+
+		OutRenderQuadInfos.Add(QuadInfo);
+	}
+
+	inline void SetBillboard(bool billboard) { mbBillboard = billboard; }
+	inline void SetTextureAsset(const TSharedPtr<FTexture2DAsset>& textureAsset) { mTextureAsset = textureAsset; }
+	inline void SetColor(const FVector4& color) { mColor = color; }
+	inline void SetDepthState(bool enableDepthTest, bool enableDepthWrite) { mEnableDepthTest = enableDepthTest; mEnableDepthWrite = enableDepthWrite; }
+
+private:
+	bool mbBillboard = false;
+	TSharedPtr<FTexture2DAsset> mTextureAsset;
+	FVector4 mColor = FVector4(1, 1, 1, 1);
+	bool mEnableDepthTest = true;
+	bool mEnableDepthWrite = true;
+};
+
+class UText3DComponent : public USceneComponent
+{
+	REFLECT_CLASS(UText3DComponent, USceneComponent)
+
+public:
+	UText3DComponent() = default;
+
+	inline void BuildRenderQuadInfos(const FCamera& Camera, TArray<FRenderQuadInfo>& OutRenderQuadInfos) const
 	{
 		if (!mFontAtlasAsset)
 		{
@@ -24,6 +88,10 @@ public:
 			const float WorldLineHeight = fontAtlas->LineHeight() * WorldUnitPerPixel;
 			const float WorldAscender = fontAtlas->Ascender() * WorldUnitPerPixel;
 			const float WorldDescender = fontAtlas->Descender() * WorldUnitPerPixel;
+
+			const FVector CameraForward = Camera.GetForwardVector();
+			const FVector CameraRight = Camera.GetRightVector();
+			const FVector CameraUp = Camera.GetUpVector();
 
 			float TotalWidth = 0.0f;
 			float TotalHeight = 0.0f;
@@ -55,7 +123,8 @@ public:
 			TotalHeight = (WorldAscender - WorldDescender) + (LineCount - 1) * WorldLineHeight;
 
 			// Append the text quads to the output array
-			FMatrix PivotMatrix = GetTransformMatrix().MakeMatrix();
+			FTransform PivotTransform = GetTransformMatrix();
+
 			FVector TextLocation = FVector(0.f, -TotalWidth * 0.5f, TotalHeight * 0.5f - WorldAscender);
 			for (wchar_t C : mText)
 			{
@@ -81,12 +150,30 @@ public:
 
 				FVector GlyphCenter(TextLocation.x, TextLocation.y + WorldBearingX + WorldWidth * 0.5f, TextLocation.z + WorldBearingY - WorldHeight * 0.5f);
 				FMatrix TextModel = FMatrix::Scale(FVector3(1.0f, WorldWidth, WorldHeight)) * FMatrix::Translation(GlyphCenter);
+				if (mbBillboard)
+				{
+					FMatrix BillboardMatrix = FMatrix(
+						FVector4(CameraForward.x, CameraForward.y, CameraForward.z, 0.f),
+						FVector4(CameraRight.x, CameraRight.y, CameraRight.z, 0.f),
+						FVector4(CameraUp.x, CameraUp.y, CameraUp.z, 0.f),
+						FVector4(0.f, 0.f, 0.f, 1.f)
+					);
+
+					TextModel *= FMatrix::Scale(PivotTransform.Scale) * BillboardMatrix * FMatrix::Translation(PivotTransform.Location);
+				}
+				else
+				{
+					TextModel *= PivotTransform.MakeMatrix();
+				}
 
 				FRenderQuadInfo QuadInfo;
-				QuadInfo.Model = TextModel * PivotMatrix;
+				QuadInfo.Model = TextModel;
 				QuadInfo.Color = mColor;
 				QuadInfo.TextureSRV = mFontAtlasAsset->GetSRV();
 				QuadInfo.SubUV = Glyph.SubUV;
+				QuadInfo.EnableDepthTest = mEnableDepthTest;
+				QuadInfo.EnableDepthWrite = mEnableDepthWrite;
+
 				OutRenderQuadInfos.Add(QuadInfo);
 
 				TextLocation.y += WorldAdvance;
@@ -94,13 +181,21 @@ public:
 		}
 	}
 
+	inline void SetBillboard(bool billboard) { mbBillboard = billboard; }
+
 	inline void SetText(const std::wstring& text) { mText = text; }
 	inline const std::wstring& GetText() const { return mText; }
 
 	inline void SetFontAtlasAsset(const TSharedPtr<FFontAtlasAsset>& fontAtlasAsset) { mFontAtlasAsset = fontAtlasAsset; }
 
+	inline void SetColor(const FVector4& color) { mColor = color; }
+	inline void SetDepthState(bool enableDepthTest, bool enableDepthWrite) { mEnableDepthTest = enableDepthTest; mEnableDepthWrite = enableDepthWrite; }
+
 private:
+	bool mbBillboard = false;
 	std::wstring mText;
 	TSharedPtr<FFontAtlasAsset> mFontAtlasAsset;
 	FVector4 mColor = FVector4(1, 1, 1, 1);
+	bool mEnableDepthTest = true;
+	bool mEnableDepthWrite = true;
 };

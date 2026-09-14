@@ -38,8 +38,13 @@ struct FVector2
 
 typedef struct FVector
 {
-    float x, y, z;
-	FVector() : x(0), y(0), z(0) {}
+	union
+	{
+		struct { float x, y, z; };
+		float v[3];
+	};
+
+    FVector() : x(0), y(0), z(0) {}
 
 	FVector(float n) : x(n), y(n), z(n){}
     FVector(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
@@ -73,6 +78,16 @@ typedef struct FVector
 	FVector operator-() const
 	{
 		return FVector(-x, -y, -z);
+	}
+
+	float& operator[](int32 Index)
+	{
+		return v[Index];
+	}
+
+	const float& operator[](int32 Index) const
+	{
+		return v[Index];
 	}
 
 	//내적

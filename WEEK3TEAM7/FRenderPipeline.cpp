@@ -4,10 +4,11 @@
 #include "Renderer.h"
 #include "TMap.h"
 
-FRenderPipeline::FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool)
+FRenderPipeline::FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool, FDepthStencilStatePool* InDepthStencilStatePool)
 	: Device(InDevice)
 	, DeviceContext(InDeviceContext)
 	, SamplerStatePool(InSamplerStatePool)
+	, DepthStencilStatePool(InDepthStencilStatePool)
 {
 }
 
@@ -25,12 +26,6 @@ void FRenderPipeline::Release()
 			RasterizerStates[Index]->Release();
 			RasterizerStates[Index] = nullptr;
 		}
-	}
-
-	if (DepthStencilState)
-	{
-		DepthStencilState->Release();
-		DepthStencilState = nullptr;
 	}
 
 	if (BlendState)
@@ -131,18 +126,8 @@ ID3D11RasterizerState* FRenderPipeline::GetRasterizerState(EViewModeIndex ViewMo
 
 void FRenderPipeline::SetDepthStencilState(bool bEnableDepthTest, bool bEnableDepthWrite)
 {
-	if (DepthStencilState)
-	{
-		DepthStencilState->Release();
-		DepthStencilState = nullptr;
-	}
-
-	D3D11_DEPTH_STENCIL_DESC DepthStencilDesc = {};
-	DepthStencilDesc.DepthEnable = bEnableDepthTest;
-	DepthStencilDesc.DepthWriteMask = bEnableDepthWrite ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
-	DepthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
-
-	Device->CreateDepthStencilState(&DepthStencilDesc, &DepthStencilState);
+	FDepthStencilStateKey Key{ bEnableDepthTest, bEnableDepthWrite };
+	DepthStencilState = DepthStencilStatePool->GetOrCreateDepthStencilState(Device, Key);
 }
 
 void FRenderPipeline::SetBlendState(const D3D11_BLEND_DESC& BlendDesc)
@@ -158,17 +143,7 @@ void FRenderPipeline::SetBlendState(const D3D11_BLEND_DESC& BlendDesc)
 
 void FRenderPipeline::SetShader(const FString& ShaderPath)
 {
-	int32 Size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, ShaderPath.CStr(), -1, nullptr, 0);
-	if (Size == 0)
-	{
-		return;
-	}
-
-	std::wstring WShaderPath(Size, L'\0');
-	if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, ShaderPath.CStr(), -1, WShaderPath.data(), Size) == 0)
-	{
-		return;
-	}
+	std::wstring WShaderPath = Utf2Wide(ShaderPath);
 
 	ID3DBlob* VertexShaderCSO;
 	ID3DBlob* PixelShaderCSO;

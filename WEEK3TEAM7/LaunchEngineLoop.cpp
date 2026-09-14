@@ -128,6 +128,9 @@ void FEngineLoop::InitAssetManager()
 	TSharedPtr<FFileAssetSource> FileAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Textures/Test.jpg");
 	mAssetManager->RegisterAsset(FName("TestTexture"), TextureLoader, FileAssetSource);
 
+	TSharedPtr<FFileAssetSource> SpotLightIconAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Textures/Icon_SpotLight.png");
+	mAssetManager->RegisterAsset(FName("SpotLightIcon"), TextureLoader, SpotLightIconAssetSource);
+
 	TSharedPtr<FFileAssetSource> FontAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Fonts/BMKkubulimTTF.ttf");
 	mAssetManager->RegisterAsset(FName("TestFont"), FontLoader, FontAssetSource);
 	
@@ -145,6 +148,8 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	float deltaTime = FrameTimer->GetDeltaTime();
 	ConsoleWindow& console = ConsoleWindow::Get();
 
+	TArray<FRenderQuadInfo>& RenderInfos = mGraphicsManager->GetRenderQuadInfos();
+
 	//Input Threads
 	{
 		WindowApplication.ProcessDeferredEvents();
@@ -155,7 +160,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 		}
 
 		mGraphicsManager->UpdateProjectionTransition(deltaTime);
-		ViewportClient->Update(deltaTime, mGraphicsManager->GetRenderer()->ViewportInfo, mSceneManager, mGraphicsManager->GetPerspectiveRatio());
+		ViewportClient->Update(deltaTime, mGraphicsManager->GetRenderer()->ViewportInfo, mSceneManager, mGraphicsManager->GetPerspectiveRatio(), RenderInfos);
 	}
 
 	//Physics Threads

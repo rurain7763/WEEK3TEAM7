@@ -83,7 +83,7 @@ void URenderer::Create(HWND hWindow)
 
 	QuadPipeline = CreateRenderPipeline();
 	QuadPipeline->SetRasterRizerState(D3D11_CULL_NONE);
-	QuadPipeline->SetDepthStencilState(true, true);
+	QuadPipeline->SetDepthStencilState(false, true);
 	QuadPipeline->SetBlendState(AlphaBlendDesc);
 	QuadPipeline->SetShader("Assets/Shaders/Quad.hlsl");
 	QuadPipeline->AddConstantBuffer<FQuadConstants>();
@@ -223,6 +223,12 @@ void URenderer::Release()
 	}
 	SamplerStatePool.SamplerStates.Empty();
 
+	for (auto& Pair : DepthStencilStatePool.DepthStencilStates)
+	{
+		Pair.second->Release();
+	}
+	DepthStencilStatePool.DepthStencilStates.Empty();
+
 	DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 	DepthStencilView->Release();
 	DepthStencilBuffer->Release();
@@ -280,7 +286,7 @@ Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> URenderer::CreateShaderResource
 
 TSharedPtr<FRenderPipeline> URenderer::CreateRenderPipeline()
 {
-	return MakeShared<FRenderPipeline>(Device, DeviceContext, &SamplerStatePool);
+	return MakeShared<FRenderPipeline>(Device, DeviceContext, &SamplerStatePool, &DepthStencilStatePool);
 }
 
 void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const
@@ -382,13 +388,23 @@ void URenderer::RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mView
 }
 #endif
 
-void URenderer::RenderQuad(const FMatrix& Model, const FVector4& Color, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV, const FVector4& SubUV) const
+void URenderer::RenderQuad(const FRenderQuadInfo& Info) const
 {
-	QuadPipeline->SetShaderResource(0, TextureSRV);
+	QuadPipeline->ClearShaderResource();
+	
+	if (Info.TextureSRV)
+	{
+		QuadPipeline->SetShaderResource(0, Info.TextureSRV);
+	}
+
+	QuadPipeline->SetDepthStencilState(Info.EnableDepthTest, Info.EnableDepthWrite);
 
 	BindPipeline(QuadPipeline);
 
-	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Model, Color, SubUV });
+	D3D11_SHADER_RESOURCE_VIEW_DESC Desc{};
+	Info.TextureSRV->GetDesc(&Desc);
+
+	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Info.Model, Info.Color, Info.SubUV, Info.TextureSRV ? 1 : 0, Desc.Format == DXGI_FORMAT_R8_UNORM });
 
 	UINT Offset = 0;
 	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);

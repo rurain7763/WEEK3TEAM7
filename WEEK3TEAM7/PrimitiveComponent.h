@@ -13,6 +13,7 @@ public:
 	//void Initialize(GraphicsManager* graphicsManager, EPrimitive ePrimitive);
 	//void Initialize(GraphicsManager* graphicsManager, EPrimitive ePrimitive, FVector location, FRotator rotation, FVector scale3D);
 
+	using USceneComponent::Initialize;
 	void Initialize(EPrimitive ePrimitive);
 	void Initialize(EPrimitive ePrimitive, FVector location, FRotator rotation, FVector scale3D);
 

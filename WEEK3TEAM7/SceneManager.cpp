@@ -25,6 +25,7 @@
 #include "CubeComponent.h"
 #include "ActorComponent.h"
 #include "Assets.h"
+#include "UTextComponent.h"
 
 FSceneManager::FSceneManager()
 {
@@ -101,33 +102,69 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 	// NOTE: This name array must be edited when adding new primitive types to EPrimitive enum.
 	ImGui::SeparatorText("Spawn Actor");
 
-	const char* primitiveTypeNames[] = { "Sphere", "Cube", "Triangle", "GizmoArrow", "Circle" };
-	int32 primitiveTypeIndex = static_cast<int32>(mGuiInputField.PrimitiveType);
-	int32 spawnCount = mGuiInputField.SpawnCount;
+	const char* ActorTypeNames[] = { 
+		"Sphere", 
+		"Cube", 
+		"Triangle", 
+		"GizmoArrow", 
+		"Circle",
+		"SpotLight"
+	};
 
-	if (ImGui::Combo("Primitive Type", &primitiveTypeIndex, primitiveTypeNames, IM_ARRAYSIZE(primitiveTypeNames)))
+	const FClassInfo* ActorClassInfo[] = {
+		UPrimitiveComponent::GetClass(),
+		UPrimitiveComponent::GetClass(),
+		UPrimitiveComponent::GetClass(),
+		UPrimitiveComponent::GetClass(),
+		UPrimitiveComponent::GetClass(),
+		USpotLightComponent::GetClass()
+	};
+
+	int32 ActorTypeIndex = static_cast<int32>(mGuiInputField.PrimitiveType);
+	int32 SpawnCount = mGuiInputField.SpawnCount;
+	if (ImGui::Combo("Actor Type", &ActorTypeIndex, ActorTypeNames, IM_ARRAYSIZE(ActorTypeNames)))
 	{
-		mGuiInputField.PrimitiveType = static_cast<EPrimitive>(primitiveTypeIndex);
+		mGuiInputField.PrimitiveType = static_cast<EPrimitive>(ActorTypeIndex);
 	}
 	if (ImGui::Button("Spawn"))
 	{
 		for (int32 i = 0; i < mGuiInputField.SpawnCount; ++i)
 		{
-			AActor* newActor = FObjectFactory::SpawnPrimitiveActor(
-				mGuiInputField.PrimitiveType,
-				FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1)
-			);
-			mCurrentWorld->AddActor(newActor);
+			const FClassInfo* ActorClass = ActorClassInfo[ActorTypeIndex];
+
+			AActor* NewActor = nullptr;
+			if (ActorClass->IsChildOf(UPrimitiveComponent::GetClass()))
+			{
+				NewActor = FObjectFactory::SpawnPrimitiveActor(
+					mGuiInputField.PrimitiveType,
+					FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1)
+				);
+			}
+			else if (ActorClass->IsChildOf(USpotLightComponent::GetClass()))
+			{
+				NewActor = FObjectFactory::ConstructObject<AActor>();
+				USpotLightComponent* NewSpotLight = FObjectFactory::ConstructObject<USpotLightComponent>(FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1));
+				NewActor->AddRootSceneComponent(NewSpotLight);
+			}
+			else
+			{
+				UE_LOG_ERROR("Unknown actor class: %s", ActorClass->Name.CStr());
+			}
+
+			if (NewActor)
+			{
+				mCurrentWorld->AddActor(NewActor);
+			}
 		}
 	}
 	ImGui::SameLine();
-	if (ImGui::InputInt("Number of spawn", &spawnCount))
+	if (ImGui::InputInt("Number of spawn", &SpawnCount))
 	{
-		if (spawnCount < 1)
+		if (SpawnCount < 1)
 		{
-			spawnCount = 1;
+			SpawnCount = 1;
 		}
-		mGuiInputField.SpawnCount = spawnCount;
+		mGuiInputField.SpawnCount = SpawnCount;
 	}
 
 	/*Scene Control*/

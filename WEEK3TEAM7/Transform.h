@@ -34,6 +34,4 @@ struct FTransform
 			* FMatrix::Scale(FVector(1.0f / Scale.x, 1.0f / Scale.y, 1.0f / Scale.z))
 		};
 	}
-
-	
 };

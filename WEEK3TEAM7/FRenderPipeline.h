@@ -10,11 +10,12 @@
 
 class URenderer;
 class FSamplerStatePool;
+class FDepthStencilStatePool;
 
 class FRenderPipeline
 {
 public:
-	FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool);
+	FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool, FDepthStencilStatePool* InDepthStencilStatePool);
 	~FRenderPipeline();
 
 	void Release();
@@ -74,6 +75,7 @@ private:
 	ID3D11Device* Device = nullptr;
 	ID3D11DeviceContext* DeviceContext = nullptr;
 	FSamplerStatePool* SamplerStatePool = nullptr;
+	FDepthStencilStatePool* DepthStencilStatePool = nullptr;
 	static constexpr int32 ViewModeCount = static_cast<int32>(EViewModeIndex::VMI_Max);
 	ID3D11RasterizerState* RasterizerStates[ViewModeCount] = {};
 	ID3D11DepthStencilState* DepthStencilState = nullptr;

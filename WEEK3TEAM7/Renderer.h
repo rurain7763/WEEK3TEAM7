@@ -77,6 +77,9 @@ struct FQuadConstants
 	FMatrix Model;
 	FVector4 Color;
 	FVector4 SubUV;
+	int32 HasTexture;
+	int32 GrayscaleMode;
+	int32 Padding[2];
 };
 
 struct FSamplerStateKey
@@ -143,6 +146,60 @@ private:
 	TMap<FSamplerStateKey, ID3D11SamplerState*, FSamplerStateKeyHash> SamplerStates;
 };
 
+struct FDepthStencilStateKey
+{
+	bool bEnableDepthTest;
+	bool bEnableDepthWrite;
+	
+	bool operator==(const FDepthStencilStateKey& Other) const
+	{
+		return bEnableDepthTest == Other.bEnableDepthTest && bEnableDepthWrite == Other.bEnableDepthWrite;
+	}
+};
+
+struct FDepthStencilStateKeyHash
+{
+	std::size_t operator()(const FDepthStencilStateKey& Key) const
+	{
+		return std::hash<bool>()(Key.bEnableDepthTest) ^ (std::hash<bool>()(Key.bEnableDepthWrite) << 1);
+	}
+};
+
+class FDepthStencilStatePool
+{
+public:
+	ID3D11DepthStencilState* GetOrCreateDepthStencilState(ID3D11Device* Device, const FDepthStencilStateKey& Key)
+	{
+		ID3D11DepthStencilState** existing = DepthStencilStates.Find(Key);
+		if (existing)
+		{
+			return *existing;
+		}
+
+		D3D11_DEPTH_STENCIL_DESC DepthStencilDesc = {};
+		DepthStencilDesc.DepthEnable = Key.bEnableDepthTest ? TRUE : FALSE;
+		DepthStencilDesc.DepthWriteMask = Key.bEnableDepthWrite ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+		DepthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
+		DepthStencilDesc.StencilEnable = FALSE;
+
+		ID3D11DepthStencilState* DepthStencilState = nullptr;
+		HRESULT Hr = Device->CreateDepthStencilState(&DepthStencilDesc, &DepthStencilState);
+		if (FAILED(Hr))
+		{
+			return nullptr;
+		}
+
+		DepthStencilStates.Add(Key, DepthStencilState);
+
+		return DepthStencilState;
+	}
+
+private:
+	friend class URenderer;
+
+	TMap<FDepthStencilStateKey, ID3D11DepthStencilState*, FDepthStencilStateKeyHash> DepthStencilStates;
+};
+
 class URenderer
 {
 public:
@@ -151,6 +208,8 @@ public:
     IDXGISwapChain* SwapChain = nullptr;
 
 	FSamplerStatePool SamplerStatePool;
+	FDepthStencilStatePool DepthStencilStatePool;
+
     ID3D11Texture2D* FrameBuffer = nullptr;
     ID3D11RenderTargetView* FrameBufferRTV = nullptr;
 
@@ -243,7 +302,7 @@ public:
 	void RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI);
 #endif
 
-	void RenderQuad(const FMatrix& Model, const FVector4& Color, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV, const FVector4& SubUV = FVector4(0.0f, 0.0f, 1.0f, 1.0f)) const;
+	void RenderQuad(const FRenderQuadInfo& Info) const;
 
 	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const;
 	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const;

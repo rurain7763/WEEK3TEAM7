@@ -14,6 +14,19 @@ UObject* FClassInfo::CreateInstance() const
 	return nullptr;
 }
 
+bool FClassInfo::IsChildOf(const FClassInfo* other) const
+{
+	const FClassInfo* currentClass = this;
+	while (currentClass)
+	{
+		if (currentClass == other)
+		{
+			return true;
+		}
+		currentClass = currentClass->SuperClass;
+	}
+	return false;
+}
 
 UObject::UObject()
 {

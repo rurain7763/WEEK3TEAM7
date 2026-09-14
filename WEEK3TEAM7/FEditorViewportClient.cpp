@@ -13,6 +13,7 @@
 #include "GraphicsManager.h"
 #include "Renderer.h"
 #include <cstdio>
+#include "UTextComponent.h"
 
 // 정점 배열이 보이는 스코프라 sizeof 로 개수가 나온다.
 // 포인터로 받으면 배열 크기 정보가 사라지므로 여기서 개수를 같이 넘긴다.
@@ -142,7 +143,7 @@ void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, 
 	}
 }
 
-void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio)
+void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio, TArray<FRenderQuadInfo>& RenderQuadInfos)
 {
 	const FInputState& Input = WindowApplication.Input;
 	ImGuiIO& io = ImGui::GetIO();
@@ -262,7 +263,44 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 		}
     }
 
-	mGizmo.Update(sceneManager->GetSelectedActor());
+	UWorld* CurrentWorld = sceneManager->GetCurrentWorld();
+	for (AActor* Actor : CurrentWorld->GetActors())
+	{
+		FTransform Transform = Actor->GetTransform();
+		USceneComponent* RootComponent = Actor->GetRootComponent();
+
+		if (RootComponent->IsA<USpotLightComponent>())
+		{
+			// SpotLightComponent이면 SpotLightIcon을 표시
+			TSharedPtr<FTexture2DAsset> SpotLightTexture = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(FName("SpotLightIcon"), true);
+			if (SpotLightTexture)
+			{
+				UPlaneComponent PlaneComponent;
+				PlaneComponent.Initialize(Transform.Location, FRotator(0.f, 0.f, 0.f), FVector(1.f, 1.f, 1.f));
+				PlaneComponent.SetBillboard(true);
+				PlaneComponent.SetTextureAsset(SpotLightTexture);
+				PlaneComponent.SetDepthState(true, true);
+				PlaneComponent.BuildRenderQuadInfos(mCamera, RenderQuadInfos);
+			}
+		}
+	}
+
+	AActor* SelectedActor = sceneManager->GetSelectedActor();
+	if (SelectedActor)
+	{
+		FTransform Transform = SelectedActor->GetTransform();
+
+		// 선택된 액터의 UUID를 화면에 표시
+		UText3DComponent textComponent;
+		textComponent.Initialize(FVector(Transform.Location.x, Transform.Location.y, Transform.Location.z + 0.5f), FRotator(0.f, 0.f, 0.f), FVector(1.f, 1.f, 1.f));
+		textComponent.SetBillboard(true);
+		textComponent.SetText(Utf2Wide(std::format("UUID: {}", SelectedActor->UUID)));
+		textComponent.SetFontAtlasAsset(FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
+		textComponent.SetDepthState(false, true);
+		textComponent.BuildRenderQuadInfos(mCamera, RenderQuadInfos);
+	}
+
+	mGizmo.Update(SelectedActor);
 }
 
 bool FEditorViewportClient::RayIntersectsTriangle(const FVector& Origin, const FVector& Dir, const FVector& V0, const FVector& V1, const FVector& V2, float& OutT, float& OutU, float& OutV)

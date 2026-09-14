@@ -31,7 +31,6 @@ public:
 	//void Render(FTransform worldTransformMatrix, EPrimitive ePrimitive); // FRenderInfo
 	//void Render(const TArray<FRenderInfo> renderInfos);
 	void Render(const TArray<FRenderInfo> renderInfos);
-	void RenderOverlay(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos);
 	//void RenderOverlay(const TArray<FRenderInfo> renderInfos); //깊이버퍼 초기화
 	// FRenderInfo
 
@@ -74,6 +73,8 @@ public:
 	bool IsOrthographicTarget() const;
 	void UpdateProjectionTransition(float deltaTime);
 
+	inline TArray<FRenderQuadInfo>& GetRenderQuadInfos() { return mRenderQuadInfos; }
+
 private:
 	URenderer* mRenderer;
 	FMatrix mViewMatrix;
@@ -106,4 +107,6 @@ private:
 	bool mbProjectionTransitioning = false;
 
 	TSharedPtr<FRenderPipeline> mMeshPipeline;
+
+	TArray<FRenderQuadInfo> mRenderQuadInfos;
 };

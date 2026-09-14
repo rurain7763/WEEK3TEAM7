@@ -140,23 +140,11 @@ void FGraphicsManager::Render(const TArray<FRenderInfo> renderInfos)
 		}
 	}
 
-	// NOTE: 텍스트 렌더링 테스트
-	static bool bTextInited = false;
-	static TArray<FRenderQuadInfo> RenderQuadInfos;
-	if (!bTextInited)
+	for (const FRenderQuadInfo& QuadInfo : mRenderQuadInfos)
 	{
-		UTextComponent textComponent;
-		textComponent.Initialize(FVector(0.f, 0.f, 2.f), FRotator(0.f, 0.f, 0.f), FVector(1.f, 1.f, 1.f));
-		textComponent.SetText(L"Hello, World!\nTEST TEST TEST TEST TEST TEST\n안녕하세요 안녕하세요 안녕하세요 안녕하세요 안녕하세요");
-		textComponent.SetFontAtlasAsset(FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
-		textComponent.GetRenderQuadInfos(RenderQuadInfos);
-		bTextInited = true;
+		mRenderer->RenderQuad(QuadInfo);
 	}
-
-	for (const FRenderQuadInfo& quadInfo : RenderQuadInfos)
-	{
-		mRenderer->RenderQuad(quadInfo.Model, quadInfo.Color, quadInfo.TextureSRV, quadInfo.SubUV);
-	}
+	mRenderQuadInfos.Empty();
 }
 
 void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const FVector4& color)
@@ -234,11 +222,6 @@ void FGraphicsManager::FlushLines()
 #endif
 }
 
-void FGraphicsManager::RenderOverlay(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos) //깊이버퍼 초기화
-{
-	mRenderer->ClearDepth();
-	Render(renderInfos);
-}
 /*
 void GraphicsManager::Render(FTransform worldTransformMatrix, EPrimitive ePrimitive)
 {
