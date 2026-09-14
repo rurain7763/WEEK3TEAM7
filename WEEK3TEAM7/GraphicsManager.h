@@ -30,7 +30,7 @@ public:
 
 	//void Render(FTransform worldTransformMatrix, EPrimitive ePrimitive); // FRenderInfo
 	//void Render(const TArray<FRenderInfo> renderInfos);
-	void Render(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos);
+	void Render(const TArray<FRenderInfo> renderInfos);
 	void RenderOverlay(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos);
 	//void RenderOverlay(const TArray<FRenderInfo> renderInfos); //깊이버퍼 초기화
 	// FRenderInfo

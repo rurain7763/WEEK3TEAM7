@@ -148,7 +148,7 @@ void FGraphicsManager::Render(const TArray<FRenderInfo> renderInfos)
 		UTextComponent textComponent;
 		textComponent.Initialize(FVector(0.f, 0.f, 2.f), FRotator(0.f, 0.f, 0.f), FVector(1.f, 1.f, 1.f));
 		textComponent.SetText(L"Hello, World!\nTEST TEST TEST TEST TEST TEST\n안녕하세요 안녕하세요 안녕하세요 안녕하세요 안녕하세요");
-		textComponent.SetFontAtlasAsset(mAssetManager->GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
+		textComponent.SetFontAtlasAsset(FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
 		textComponent.GetRenderQuadInfos(RenderQuadInfos);
 		bTextInited = true;
 	}
@@ -237,7 +237,7 @@ void FGraphicsManager::FlushLines()
 void FGraphicsManager::RenderOverlay(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos) //깊이버퍼 초기화
 {
 	mRenderer->ClearDepth();
-	Render(AssetManager, renderInfos);
+	Render(renderInfos);
 }
 /*
 void GraphicsManager::Render(FTransform worldTransformMatrix, EPrimitive ePrimitive)
