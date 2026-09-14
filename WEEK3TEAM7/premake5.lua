@@ -12,7 +12,18 @@ project "WEEK3TEAM7"
     files {
         "**.cpp",
         "**.h",
+        "../Assets/**",
     }
+
+    -- 에셋은 탐색기에 보이기만 하고 빌드에는 걸리지 않게 한다
+    vpaths {
+        ["Assets/*"] = "../Assets/**",
+    }
+
+    filter "files:**.hlsl"
+        buildaction "None"
+
+    filter {}
 
     includedirs {
         ".",
