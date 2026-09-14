@@ -281,3 +281,4 @@ editor.ini
 *.vcxproj.filters
 
 !Assets/**
+!Vendor/lib/**

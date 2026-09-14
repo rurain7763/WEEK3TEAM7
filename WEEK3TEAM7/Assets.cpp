@@ -89,7 +89,7 @@ void FFontAssetLoader::UnloadAsset(TSharedPtr<FAsset> Asset)
 }
 
 FFontAtlasAsset::FFontAtlasAsset(const FName& InAssetName, URenderer& InRenderer, TSharedPtr<FFontAsset>& InFontAsset, uint32 InWidth, uint32 InHeight, uint32 InPaddingW, uint32 InPaddingH)
-	: FAsset(InAssetName, EAssetType::Font)
+	: FAsset(InAssetName, EAssetType::FontAtlas)
 	, Renderer(InRenderer)
 	, FontAsset(InFontAsset)
 	, FontAtlas(MakeShared<FFontAtlas>(InFontAsset->GetFace(), InWidth, InHeight, InPaddingW, InPaddingH))
