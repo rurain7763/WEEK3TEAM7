@@ -139,15 +139,8 @@ FName::FName()
 }
 
 FName::FName(const char* pStr)
+	: FName(FString(pStr))
 {
-	FString ParsedName;
-	ParseName(FString(pStr), ParsedName, Number);
-
-	FString ComparisonName = ParsedName.ToLower();
-
-	FNamePool& NamePool = GetNamePool();
-	ComparisonIndex = NamePool.StoreComparisionName(ComparisonName);
-	DisplayIndex = NamePool.StoreDisplayName(ComparisonIndex, ParsedName);
 }
 
 FName::FName(const FString& Name)

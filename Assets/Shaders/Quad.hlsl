@@ -3,8 +3,6 @@ cbuffer Constants : register(b0)
 	row_major matrix model;
 	float4 color;
     float4 sub_uv;
-    uint texture_color_mask;
-    uint padding[3];
 }
 
 cbuffer CameraConstants : register(b1)

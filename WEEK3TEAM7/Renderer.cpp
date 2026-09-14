@@ -37,8 +37,8 @@ void URenderer::Create(HWND hWindow)
 	AlphaBlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
 	AlphaBlendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
 	AlphaBlendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-	AlphaBlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-	AlphaBlendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	AlphaBlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ZERO;
+	AlphaBlendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
 	AlphaBlendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 	AlphaBlendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
@@ -382,14 +382,13 @@ void URenderer::RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mView
 }
 #endif
 
-void URenderer::RenderQuad(const FMatrix& Model, const FVector4& Color, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV, const FVector4& SubUV, uint32 TextureColorMask) const
+void URenderer::RenderQuad(const FMatrix& Model, const FVector4& Color, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV, const FVector4& SubUV) const
 {
-	QuadPipeline->ClearShaderResource();
 	QuadPipeline->SetShaderResource(0, TextureSRV);
 
 	BindPipeline(QuadPipeline);
 
-	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Model, Color, SubUV, TextureColorMask });
+	QuadPipeline->UpdateConstantBuffer(0, FQuadConstants{ Model, Color, SubUV });
 
 	UINT Offset = 0;
 	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);

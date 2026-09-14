@@ -77,8 +77,6 @@ struct FQuadConstants
 	FMatrix Model;
 	FVector4 Color;
 	FVector4 SubUV;
-	uint32 TextureColorMask;
-	uint32 Padding[3];
 };
 
 struct FSamplerStateKey
@@ -245,7 +243,7 @@ public:
 	void RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI);
 #endif
 
-	void RenderQuad(const FMatrix& Model, const FVector4& Color, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV, const FVector4& SubUV = FVector4(0.0f, 0.0f, 1.0f, 1.0f), uint32 TextureColorMask = 0xFFFFFFFF) const;
+	void RenderQuad(const FMatrix& Model, const FVector4& Color, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV, const FVector4& SubUV = FVector4(0.0f, 0.0f, 1.0f, 1.0f)) const;
 
 	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const;
 	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const;

@@ -146,7 +146,7 @@ void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRender
 	if (!bTextInited)
 	{
 		UTextComponent textComponent;
-		textComponent.Initialize(FVector(0.f, 0.f, 5.f), FRotator(0.f, 0.f, 0.f), FVector(1.f, 1.f, 1.f));
+		textComponent.Initialize(FVector(0.f, 0.f, 2.f), FRotator(0.f, 0.f, 0.f), FVector(1.f, 1.f, 1.f));
 		textComponent.SetText(L"Hello, World!\nTEST TEST TEST TEST TEST TEST\n안녕하세요 안녕하세요 안녕하세요 안녕하세요 안녕하세요");
 		textComponent.SetFontAtlasAsset(mAssetManager->GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
 		textComponent.GetRenderQuadInfos(RenderQuadInfos);
@@ -155,7 +155,7 @@ void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRender
 
 	for (const FRenderQuadInfo& quadInfo : RenderQuadInfos)
 	{
-		mRenderer->RenderQuad(quadInfo.Model, quadInfo.Color, quadInfo.TextureSRV, quadInfo.SubUV, 0x000000FF);
+		mRenderer->RenderQuad(quadInfo.Model, quadInfo.Color, quadInfo.TextureSRV, quadInfo.SubUV);
 	}
 }
 
