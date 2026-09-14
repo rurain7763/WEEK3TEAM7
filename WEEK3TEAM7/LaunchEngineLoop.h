@@ -27,6 +27,8 @@ public:
 	void Tick(bool bPumpMessages);
 	void End();
 
+	FAssetManager* GetAssetManager() { return mAssetManager; }
+
 private:
 	void InitAssetManager();
 

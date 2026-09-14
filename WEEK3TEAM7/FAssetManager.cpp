@@ -1,4 +1,10 @@
 #include "FAssetManager.h"
+#include "LaunchEngineLoop.h"
+
+FAssetManager& FAssetManager::Get()
+{
+	return *GEngineLoop.GetAssetManager();
+}
 
 void FAssetManager::RegisterAsset(const FName& AssetName, const TSharedPtr<FAssetLoader>& AssetLoader, const TSharedPtr<FAssetSource>& AssetSource)
 {

@@ -90,7 +90,7 @@ void FGraphicsManager::GizmoPrepare()
 	mRenderer->RSUpdateState();
 
 }
-void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRenderInfo> renderInfos)
+void FGraphicsManager::Render(const TArray<FRenderInfo> renderInfos)
 {
 	FMatrix viewProjection;
 	//if (mbPerspectiveProjection)
@@ -108,7 +108,7 @@ void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRender
 	{
 		//mRenderer->UpdateConstant(renderInfo.WorldTransformMatrix, mViewProjectionMatrix, renderInfo.Color);
 
-		TSharedPtr<FStaticMeshAsset> asset = mAssetManager->GetAssetAs<FStaticMeshAsset>(renderInfo.StaticMeshName);
+		TSharedPtr<FStaticMeshAsset> asset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(renderInfo.StaticMeshName);
 		if (!asset)
 		{
 			UE_LOG("Error: Static mesh asset not found for name: %s", renderInfo.StaticMeshName.ToString().c_str());
