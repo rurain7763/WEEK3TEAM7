@@ -60,7 +60,7 @@ void FSceneManager::Update(float deltaTime, FRenderCollector& outCollector)
 
 	}
 
-	mCurrentWorld->Update(outCollector);
+	mCurrentWorld->Update(deltaTime, outCollector);
 }
 
 void FSceneManager::UpdateGUI(const FGuiReference& guiReference)
@@ -117,7 +117,7 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 		UPrimitiveComponent::GetClass(),
 		UPrimitiveComponent::GetClass(),
 		UPrimitiveComponent::GetClass(),
-		USpotLightComponent::GetClass()
+		ASpotLight::GetClass()
 	};
 
 	int32 ActorTypeIndex = static_cast<int32>(mGuiInputField.PrimitiveType);
@@ -140,11 +140,19 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 					FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1)
 				);
 			}
-			else if (ActorClass->IsChildOf(USpotLightComponent::GetClass()))
+			else if (ActorClass->IsChildOf(ASpotLight::GetClass()))
 			{
-				NewActor = FObjectFactory::ConstructObject<AActor>();
-				USpotLightComponent* NewSpotLight = FObjectFactory::ConstructObject<USpotLightComponent>(FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1));
-				NewActor->AddRootSceneComponent(NewSpotLight);
+				NewActor = FObjectFactory::ConstructObject<ASpotLight>();
+
+				TSharedPtr<FTexture2DAsset> SpotLightTexture = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(FName("SpotLightIcon"), true);
+
+				UPlaneComponent* PlaneComponent = FObjectFactory::ConstructObject<UPlaneComponent>(FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1));
+				PlaneComponent->SetBillboardCamera(guiReference.ViewportClient->GetCamera());
+				PlaneComponent->SetBillboard(true);
+				PlaneComponent->SetTexture(SpotLightTexture);
+				PlaneComponent->SetDepthState(true, true);
+
+				NewActor->AddRootSceneComponent(PlaneComponent);
 			}
 			else
 			{
@@ -153,6 +161,15 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 
 			if (NewActor)
 			{
+				UText3DComponent* Text3DComponent = FObjectFactory::ConstructObject<UText3DComponent>(FVector(0, 0, 1), FRotator(0, 0, 0), FVector(1, 1, 1));
+				Text3DComponent->SetBillboardCamera(guiReference.ViewportClient->GetCamera());
+				Text3DComponent->SetBillboard(true);
+				Text3DComponent->SetText(Utf2Wide(std::format("UUID: {}", NewActor->UUID)));
+				Text3DComponent->SetFontAtlasAsset(FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
+				Text3DComponent->SetDepthState(false, true);
+				
+				NewActor->AddComponent(Text3DComponent);
+
 				mCurrentWorld->AddActor(NewActor);
 			}
 		}

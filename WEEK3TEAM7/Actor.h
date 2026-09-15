@@ -7,6 +7,7 @@ class UWorld;
 struct FRenderInfo;
 struct FTransform;
 class USceneComponent;
+class FRenderCollector;
 
 class AActor : public UObject
 {
@@ -27,8 +28,8 @@ public:
 
 	FTransform GetTransform() const;
 
-	virtual void Update(TArray<FRenderInfo>* outRenderInfos);
-	//void Render();
+	virtual void Tick(float deltaTime);
+	virtual void Render(FRenderCollector& RenderCollector);
 
 	void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const;
 	bool GetFirstRenderInfo(FRenderInfo& outRenderInfo) const;

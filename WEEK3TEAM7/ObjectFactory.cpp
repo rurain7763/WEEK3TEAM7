@@ -79,7 +79,7 @@ TMap<FString, std::function<const FClassInfo* ()>> FObjectFactory::mClassInfoMap
 	{"UPrimitiveComponent", &UPrimitiveComponent::GetClass },
 	{"UCubeComponent", &UCubeComponent::GetClass },
 	{"USphereComponent", &USphereComponent::GetClass },
-	{"USpotLightComponent", &USpotLightComponent::GetClass },	
+	{"USpotLightComponent", &ASpotLight::GetClass },	
 	{"UPlaneComponent", &UPlaneComponent::GetClass },
 	{"UText3DComponent", &UText3DComponent::GetClass },
 	{"UWorld", &UWorld::GetClass },

@@ -213,21 +213,6 @@ struct FRay
 	}
 };
 
-struct FTriangle
-{
-	FVector p0;
-	FVector p1;
-	FVector p2;
-
-	FTriangle() = default;
-	FTriangle(const FVector& InP0, const FVector& InP1, const FVector& InP2)
-		: p0(InP0)
-		, p1(InP1)
-		, p2(InP2)
-	{
-	}
-};
-
 // 1. Define the triangle vertices
 struct FVertexSimple
 {

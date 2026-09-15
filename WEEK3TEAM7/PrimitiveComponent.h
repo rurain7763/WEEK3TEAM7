@@ -23,13 +23,15 @@ public:
 	virtual void DeserializeClass(const json::JSON& inJson) override;
 
 	//virtual void Render();
-	void Update(TArray<FRenderInfo>* outRenderInfos) override final;
+	virtual void Render(FRenderCollector& RenderCollector) override;
 	void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const override final;
 
 	inline const TSharedPtr<FStaticMeshAsset>& GetMesh() const { return mMeshAsset; }
 
 	inline void SetTexture(const TSharedPtr<FTexture2DAsset>& textureAsset) { mTextureAsset = textureAsset; }
 	inline const TSharedPtr<FTexture2DAsset>& GetTexture() const { return mTextureAsset; }
+
+	inline EPrimitive GetPrimitiveType() const { return mePrimitive; }
 
 protected:
 	//GraphicsManager* mGraphicsManager;

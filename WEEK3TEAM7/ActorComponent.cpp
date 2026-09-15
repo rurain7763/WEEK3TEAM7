@@ -1,5 +1,5 @@
-﻿
-#include "ActorComponent.h"
+﻿#include "ActorComponent.h"
+#include "RenderInfo.h"
 
 UActorComponent::UActorComponent()
 	: mOwner(nullptr)
@@ -22,7 +22,11 @@ AActor* UActorComponent::GetOwner() const
 	return mOwner;
 }
 
-void UActorComponent::Update(TArray<FRenderInfo>* outRenderInfos)
+void UActorComponent::Tick(float deltaTime)
+{
+}
+
+void UActorComponent::Render(FRenderCollector& RenderCollector)
 {
 	// Todo: Do nothing, must override, some components may not call Update()
 	// assert(false);

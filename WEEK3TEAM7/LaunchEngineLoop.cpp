@@ -11,6 +11,7 @@
 #include "Sphere.h"
 #include "Circle.h"
 #include "Triangle.h"
+#include "Plane.h"
 #include "Object.h"
 #include "GizmoArrow.h"
 #include "ImGui/imgui.h"
@@ -117,6 +118,9 @@ void FEngineLoop::InitAssetManager()
 	TSharedPtr<FStaticMeshAsset> gizmoArrowAsset = MakeShared<FStaticMeshAsset>(FName("GizmoArrowMesh"), *renderer, GizmoArrow_vertices, sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(gizmoArrowAsset);
 
+	TSharedPtr<FStaticMeshAsset> PlaneAsset = MakeShared<FStaticMeshAsset>(FName("PlaneMesh"), *renderer, Plane_vertices, sizeof(Plane_vertices) / sizeof(FVertexSimple));
+	mAssetManager->RegisterAsset(PlaneAsset);
+
 	TSharedPtr<FTexture2DAssetLoader> TextureLoader = MakeShared<FTexture2DAssetLoader>(*renderer);
 	TSharedPtr<FFontAssetLoader> FontLoader = MakeShared<FFontAssetLoader>(*mFontManager);
 
@@ -144,6 +148,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	ConsoleWindow& console = ConsoleWindow::Get();
 
 	FRenderCollector& RenderCollector = mGraphicsManager->GetRenderCollector();
+	RenderCollector.Camera = &ViewportClient->GetCamera();
 
 	//Input Threads
 	{

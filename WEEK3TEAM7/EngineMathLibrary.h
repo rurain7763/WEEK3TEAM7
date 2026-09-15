@@ -201,3 +201,41 @@ inline bool RayIntersectsTriangle(const FVector& Origin, const FVector& Dir, con
 	// OutT : 맞은물체가 얼마나 가까이있나(float)
 	// OutU, OutV 정확환 클릭지점을 확인하려면 필요
 }
+
+inline bool RayIntersectsAABB(const FRay& Ray, float Distance, const FAABB& AABB)
+{
+	if (Distance < 0.f)
+	{
+		return false;
+	}
+
+	float Enter = 0.f;
+	float Exit = Distance;
+
+	for (int32 i = 0; i < 3; i++)
+	{
+		if (Ray.Direction[i] == 0.f)
+		{
+			if (Ray.Origin[i] < AABB.Min[i] || Ray.Origin[i] > AABB.Max[i])
+			{
+				return false;
+			}
+
+			continue;
+		}
+
+		float AxisEnter = (AABB.Min[i] - Ray.Origin[i]) / Ray.Direction[i];
+		float AxisExit = (AABB.Max[i] - Ray.Origin[i]) / Ray.Direction[i];
+		if (AxisEnter > AxisExit)
+		{
+			std::swap(AxisEnter, AxisExit);
+		}
+
+		if (AxisEnter > Enter) Enter = AxisEnter;
+		if (AxisExit < Exit) Exit = AxisExit;
+		if (Enter > Exit) return false;
+	}
+
+	return true;
+}
+

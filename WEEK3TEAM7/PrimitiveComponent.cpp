@@ -71,14 +71,9 @@ void UPrimitiveComponent::DeserializeClass(const json::JSON& inJson)
 	mePrimitive = EPrimitiveFromJson(propertiesJson.at("mePrimitiveType"));
 }
 
-void UPrimitiveComponent::Update(TArray<FRenderInfo>* outRenderInfos)
+void UPrimitiveComponent::Render(FRenderCollector& RenderCollector)
 {
-	// Todo: Update coordinates here
-	{
-		//UE_LOG("Primitive selected");
-	}
-	
-	GetRenderInfos(outRenderInfos);
+	RenderCollector.RenderInfos.Add({ mMeshAsset, mTextureAsset, mePrimitive, GetTransformMatrix().MakeMatrix(),{ mOwner->UUID, mOwner->InternalIndex }, FVector4(0, 0, 0, 0) });
 }
 
 void UPrimitiveComponent::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const

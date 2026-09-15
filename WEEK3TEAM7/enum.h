@@ -9,6 +9,7 @@ enum class EPrimitive
 	EP_Triangle,
 	EP_GizmoArrow,
 	EP_Circle,
+	EP_Plane,
 };
 
 enum EGIZMO_AXIS //어떤축이 선택되었는지

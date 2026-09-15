@@ -138,12 +138,19 @@ FTransform AActor::GetTransform() const
 	}
 }
 
-
-void AActor::Update(TArray<FRenderInfo>* outRenderInfos)
+void AActor::Tick(float deltaTime)
 {
 	for (UActorComponent* component : mComponents)
 	{
-		component->Update(outRenderInfos);
+		component->Tick(deltaTime);
+	}
+}
+
+void AActor::Render(FRenderCollector& RenderCollector)
+{
+	for (UActorComponent* component : mComponents)
+	{
+		component->Render(RenderCollector);
 	}
 }
 

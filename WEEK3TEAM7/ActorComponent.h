@@ -3,6 +3,7 @@
 #include "Object.h"
 
 struct FRenderInfo;
+class FRenderCollector;
 
 class UActorComponent : public UObject
 {
@@ -15,7 +16,8 @@ public:
 	AActor* GetOwner() const;
 
 	// Todo: Make as pure class
-	virtual void Update(TArray<FRenderInfo>* outRenderInfos);
+	virtual void Tick(float deltaTime);
+	virtual void Render(FRenderCollector& RenderCollector);
 	virtual void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const;
 
 protected:
