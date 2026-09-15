@@ -292,38 +292,12 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 		bool bOrthographic = guiReference.GraphicsManager->IsOrthographicTarget();
 		if (ImGui::Checkbox("Orthogonal", &bOrthographic))
 		{
-			if (mSelectedActor && bOrthographic && guiReference.GraphicsManager->GetPerspectiveRatio() == 1.0f)
-			{
-				const FVector offset = mSelectedActor->GetTransform().Location - camera.Transform.Location;
-				const float depth = FVector::dot(offset, camera.GetForwardVector());
-				camera.mOrthoDistance = FMath::Max(depth, 0.1f);
-			}
-
+			// Preserve the camera and ortho zoom; animate only the projection ratio.
 			guiReference.GraphicsManager->StartProjectionTransition(bOrthographic);
 		}
 
 		ImGui::EndCombo();
 	}
-	// Debug perspective ratio slider
-
-	//float perspectiveRatio = guiReference.GraphicsManager->GetPerspectiveRatio();
-	//const float previousPerspectiveRatio = perspectiveRatio;
-	//if (ImGui::SliderFloat("Perspective Ratio", &perspectiveRatio, 0.0f, 1.0f))
-	//{
-	//	guiReference.GraphicsManager->SetPerspectiveRatio(perspectiveRatio);
-	//	// Update camera ortho distance as the distance between camera and selected actor
-	//	if (mSelectedActor && previousPerspectiveRatio == 1.0f)
-	//	{
-	//		FCamera& camera = guiReference.ViewportClient->GetCamera();
-	//		FVector cameraToActor =
-	//			mSelectedActor->GetTransform().Location -
-	//			camera.Transform.Location;
-
-	//		const float depth = FVector::dot(cameraToActor, camera.GetForwardVector());
-	//		camera.mOrthoDistance = FMath::Max(depth, 0.1f);
-	//	}
-	//}
-	//ImGui::Text("Camera Ortho Distance: %.2f", guiReference.ViewportClient->GetCamera().mOrthoDistance);
 
 	ImGui::Text("FOV     ");
 	ImGui::SameLine();

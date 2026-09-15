@@ -84,14 +84,17 @@ public:
 	{
 		if (mBillboardCamera && mbBillboard)
 		{
-			FTransform PivotTransform = GetTransformMatrix();
-			FRotator Rotation = FRotator::LookAt(PivotTransform.Location, PivotTransform.Location + mBillboardCamera->GetForwardVector());
-			SetRelativeRotation(Rotation);
+			// Match the camera's full orientation, including roll.
+			SetRelativeRotation(mBillboardCamera->Transform.Rotation);
 		}
 		
 		// NOTE: 일단 TextComponent는 Owner의 위치를 따라간다. 추후에 Hierarchy를 구현하면, 부모부터 계산해서 내려온 WorldTransform을 기반으로 계산해야 한다.
 		FVector Location = mOwner->GetRootComponent()->GetRelativeLocation();
-		Location.z += 1.0f;
+		// Place billboard labels above the actor along the camera's screen-up axis.
+		const FVector LabelUp = (mBillboardCamera && mbBillboard)
+			? mBillboardCamera->GetUpVector()
+			: FVector(0.f, 0.f, 1.f);
+		Location += LabelUp * 1.0f;
 		SetRelativeLocation(Location);
 	}
 

@@ -88,6 +88,8 @@ void FRenderPipeline::SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthB
 
 	D3D11_RASTERIZER_DESC RasterizerDesc = {};
 	RasterizerDesc.CullMode = CullMode;
+	// Clip geometry outside the near/far planes in every projection mode.
+	RasterizerDesc.DepthClipEnable = TRUE;
 	RasterizerDesc.DepthBias = static_cast<INT>(DepthBias);
 	RasterizerDesc.SlopeScaledDepthBias = DepthBias != 0 ? 1.0f : 0.0f;
 
