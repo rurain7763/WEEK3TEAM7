@@ -144,7 +144,7 @@ bool FFontAtlasAsset::HandleAddGlyph(FFontAtlas& FontAtlas, const FFontGlyph& In
 	DestBox.back = 1;
 	
 	UINT RowPitch = InBitmap.Pitch;
-	Renderer.DeviceContext->UpdateSubresource(Texture.Get(), 0, &DestBox, InBitmap.Buffer, RowPitch, 0);
+	Renderer.GetDeviceContext()->UpdateSubresource(Texture.Get(), 0, &DestBox, InBitmap.Buffer, RowPitch, 0);
 
 	return true;
 }

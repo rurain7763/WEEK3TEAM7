@@ -4,6 +4,7 @@
 #include "ImGui/imgui.h"
 #include "WindowApplication.h"
 #include "EngineMathLibrary.h"
+#include "SceneManager.h"
 
 FGizmo::FGizmo(URenderer& InRenderer) 
 	: Renderer(InRenderer) 
@@ -13,7 +14,7 @@ FGizmo::FGizmo(URenderer& InRenderer)
 void FGizmo::Reset()
 {
     bIsSelected = bIsHoveredAxis = false;
-    SelectedAxis = HoveredAxis = AxisNumber::None;
+    SelectedAxis = HoveredAxis = EAxisNumber::None;
     TargetUUID = -1;
     HandleScreenSegments.Empty();
 }
@@ -48,8 +49,10 @@ bool FGizmo::IsMouseOverHandle() const
 	return bIsHoveredAxis; 
 }
 
-void FGizmo::Update(AActor* TargetActor)
+void FGizmo::Update(FSceneManager* SceneManager)
 {
+	AActor* TargetActor = SceneManager->GetSelectedActor();
+
     if (!TargetActor) 
 	{ 
 		Reset(); 
@@ -63,21 +66,30 @@ void FGizmo::Update(AActor* TargetActor)
 	}
 
     const FInputState& Input = WindowApplication.Input;
-    const FVector2 MousePos(static_cast<float>(Input.CursorX), static_cast<float>(Input.CursorY));
+    
+    FVector2 MousePosInScreen = Map(
+        FVector2(Input.CursorX, Input.CursorY),
+        FVector2(SceneManager->GetViewportX(), SceneManager->GetViewportY()), 
+        FVector2(SceneManager->GetViewportX() + SceneManager->GetViewportWidth(), SceneManager->GetViewportY() + SceneManager->GetViewportHeight()), 
+        FVector2(0.f, 0.f), 
+        FVector2(Renderer.GetWidth(), Renderer.GetHeight())
+    );
+
+	const bool bAllowMouse = SceneManager->IsViewportHovered();
 
     if (!Input.IsDown(VK_LBUTTON)) 
 	{ 
-		bIsSelected = false; SelectedAxis = AxisNumber::None; 
+		bIsSelected = false; SelectedAxis = EAxisNumber::None; 
 	}
 
     bIsHoveredAxis = false;
-    HoveredAxis = AxisNumber::None;
+    HoveredAxis = EAxisNumber::None;
 
-    if (!ImGui::GetIO().WantCaptureMouse)
+    if (bAllowMouse)
     {
         for (const FHandleSegment& Segment : HandleScreenSegments)
         {
-			if (PointToLineSegmentDistanceSquared(MousePos, Segment.Start, Segment.End) >= HandleHitRadius * HandleHitRadius)
+			if (PointToLineSegmentDistanceSquared(MousePosInScreen, Segment.Start, Segment.End) >= HandleHitRadius * HandleHitRadius)
 			{
 				continue;
 			}
@@ -86,7 +98,7 @@ void FGizmo::Update(AActor* TargetActor)
             HoveredAxis = Segment.Axis;
             if (!bIsSelected && Input.WasPressed(VK_LBUTTON))
             {
-                PrevMousePos = MousePos;
+                PrevMousePos = MousePosInScreen;
                 AxisDirection = Segment.Direction;
                 HandleScreenDirection = Segment.End - Segment.Start;
                 HandleScreenDirection.Normalize();
@@ -103,7 +115,7 @@ void FGizmo::Update(AActor* TargetActor)
 	}
 
     const float Sensitivity = 0.01f;
-    const float Amount = FVector2::Dot(MousePos - PrevMousePos, HandleScreenDirection);
+    const float Amount = FVector2::Dot(MousePosInScreen - PrevMousePos, HandleScreenDirection);
 
     const FTransform Transform = TargetActor->GetTransform();
 	if (CurrentOperation == EGIZMO_TYPE::TRANSLATE)
@@ -128,11 +140,14 @@ void FGizmo::Update(AActor* TargetActor)
 
         TargetActor->SetScale(Scale);
     }
-    PrevMousePos = MousePos;
+
+    PrevMousePos = MousePosInScreen;
 }
 
-void FGizmo::Draw(AActor* TargetActor, const FVector& CameraPosition, const FMatrix& ViewProjection)
+void FGizmo::Render(FSceneManager* SceneManager, const FVector& CameraPosition, const FMatrix& ViewProjection)
 {
+    AActor* TargetActor = SceneManager->GetSelectedActor();
+
     HandleScreenSegments.Empty();
 
     if (!TargetActor) 
@@ -160,19 +175,19 @@ void FGizmo::Draw(AActor* TargetActor, const FVector& CameraPosition, const FMat
 		return;
 	}
 
-    enum class AxisEndPointStyle { 
+    enum class EAxisEndPointStyle { 
         None, 
         Arrow, 
         Circle 
     };
 
     const FVector2 Center = WorldToScreen(Transform.Location, ViewProjection, ScreenWidth, ScreenHeight);
-    auto AxisColor = [&](AxisNumber Axis, const FVector4& Color)
+    auto AxisColor = [&](EAxisNumber Axis, const FVector4& Color)
     {
         return Axis == (bIsSelected ? SelectedAxis : HoveredAxis) ? FVector4(1,1,0,1) : Color;
     };
 
-    auto DrawLineAxis = [&](const FVector& DrawAxis, const FVector& ApplyAxis, const FVector4& Color, AxisEndPointStyle Style, AxisNumber Axis)
+    auto DrawLineAxis = [&](const FVector& DrawAxis, const FVector& ApplyAxis, const FVector4& Color, EAxisEndPointStyle Style, EAxisNumber Axis)
     {
         const FVector2 End = WorldToScreen(Transform.Location + DrawAxis * AxisLength, ViewProjection, ScreenWidth, ScreenHeight);
 
@@ -187,17 +202,17 @@ void FGizmo::Draw(AActor* TargetActor, const FVector& CameraPosition, const FMat
 		const FVector4 Highlight = AxisColor(Axis, Color);
         Renderer.RenderLine2D(Center, End, Highlight, 5.f);
         
-		if (Style == AxisEndPointStyle::Arrow)
+		if (Style == EAxisEndPointStyle::Arrow)
 		{
             Renderer.RenderTriangle2D(End, Highlight, 20.f, atan2f(ScreenAxis.Y, ScreenAxis.X));
 		}
-		else if (Style == AxisEndPointStyle::Circle)
+		else if (Style == EAxisEndPointStyle::Circle)
 		{
             Renderer.RenderCircle2D(End, Highlight, 8.f);
 		}
     };
 
-    auto DrawCircleAxis = [&](const FVector& U, const FVector& V, const FVector4& Color, bool bNoClipping, AxisNumber Axis)
+    auto DrawCircleAxis = [&](const FVector& U, const FVector& V, const FVector4& Color, bool bNoClipping, EAxisNumber Axis)
     {
         constexpr int32 NumSegments = 32;
         FVector Points[NumSegments];
@@ -235,15 +250,15 @@ void FGizmo::Draw(AActor* TargetActor, const FVector& CameraPosition, const FMat
 
     if (CurrentOperation == EGIZMO_TYPE::TRANSLATE)
     {
-        DrawLineAxis(ForwardAxis, ForwardAxis, FVector4(1, 0, 0, 1), AxisEndPointStyle::Arrow, AxisNumber::X);
-        DrawLineAxis(RightAxis, RightAxis, FVector4(0, 1, 0, 1), AxisEndPointStyle::Arrow, AxisNumber::Y);
-        DrawLineAxis(UpAxis, UpAxis, FVector4(0, 0, 1, 1), AxisEndPointStyle::Arrow, AxisNumber::Z);
+        DrawLineAxis(ForwardAxis, ForwardAxis, FVector4(1, 0, 0, 1), EAxisEndPointStyle::Arrow, EAxisNumber::X);
+        DrawLineAxis(RightAxis, RightAxis, FVector4(0, 1, 0, 1), EAxisEndPointStyle::Arrow, EAxisNumber::Y);
+        DrawLineAxis(UpAxis, UpAxis, FVector4(0, 0, 1, 1), EAxisEndPointStyle::Arrow, EAxisNumber::Z);
     }
     else if (CurrentOperation == EGIZMO_TYPE::ROTATE)
     {
-        DrawCircleAxis(RightAxis, UpAxis, FVector4(1, 0, 0, 1), false, AxisNumber::X);
-        DrawCircleAxis(UpAxis, ForwardAxis, FVector4(0, 1, 0, 1), false, AxisNumber::Y);
-        DrawCircleAxis(ForwardAxis, RightAxis, FVector4(0, 0, 1, 1), false, AxisNumber::Z);
+        DrawCircleAxis(RightAxis, UpAxis, FVector4(1, 0, 0, 1), false, EAxisNumber::X);
+        DrawCircleAxis(UpAxis, ForwardAxis, FVector4(0, 1, 0, 1), false, EAxisNumber::Y);
+        DrawCircleAxis(ForwardAxis, RightAxis, FVector4(0, 0, 1, 1), false, EAxisNumber::Z);
 
         FVector CameraAxisU = FVector::cross(CenterToCamera, Up);
         if (CameraAxisU.IsNearlyZero())
@@ -258,14 +273,14 @@ void FGizmo::Draw(AActor* TargetActor, const FVector& CameraPosition, const FMat
             FVector CameraAxisV = FVector::cross(CameraAxisU, CenterToCamera);
             CameraAxisV.Normalize();
 
-            DrawCircleAxis(CameraAxisU, CameraAxisV, FVector4(1, 1, 1, 1), true, AxisNumber::Cameara);
+            DrawCircleAxis(CameraAxisU, CameraAxisV, FVector4(1, 1, 1, 1), true, EAxisNumber::Cameara);
         }
     }
     else if (CurrentOperation == EGIZMO_TYPE::SCALE)
     {
-        DrawLineAxis(ForwardAxis, Front, FVector4(1, 0, 0, 1), AxisEndPointStyle::Circle, AxisNumber::X);
-        DrawLineAxis(RightAxis, Right, FVector4(0, 1, 0, 1), AxisEndPointStyle::Circle, AxisNumber::Y);
-        DrawLineAxis(UpAxis, Up, FVector4(0, 0, 1, 1), AxisEndPointStyle::Circle, AxisNumber::Z);
+        DrawLineAxis(ForwardAxis, Front, FVector4(1, 0, 0, 1), EAxisEndPointStyle::Circle, EAxisNumber::X);
+        DrawLineAxis(RightAxis, Right, FVector4(0, 1, 0, 1), EAxisEndPointStyle::Circle, EAxisNumber::Y);
+        DrawLineAxis(UpAxis, Up, FVector4(0, 0, 1, 1), EAxisEndPointStyle::Circle, EAxisNumber::Z);
     }
 
     Renderer.RenderCircle2D(Center, FVector4(0.8f, 0.8f, 0.8f, 1), 5.f);

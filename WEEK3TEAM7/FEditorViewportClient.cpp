@@ -16,41 +16,9 @@
 #include <cstdio>
 #include "UTextComponent.h"
 #include "EngineMathLibrary.h"
-
-// 정점 배열이 보이는 스코프라 sizeof 로 개수가 나온다.
-// 포인터로 받으면 배열 크기 정보가 사라지므로 여기서 개수를 같이 넘긴다.
-static bool GetPrimitiveMesh(EPrimitive ePrimitive, const FVertexSimple*& OutVertices, uint32& OutCount)
-{
-	switch (ePrimitive)
-	{
-	case EPrimitive::EP_Cube:
-		OutVertices = Cube_vertices;
-		OutCount = static_cast<uint32>(sizeof(Cube_vertices) / sizeof(FVertexSimple));
-		return true;
-	case EPrimitive::EP_Sphere:
-		OutVertices = Sphere_vertices;
-		OutCount = static_cast<uint32>(sizeof(Sphere_vertices) / sizeof(FVertexSimple));
-		return true;
-	case EPrimitive::EP_Triangle:
-		OutVertices = Triangle_vertices;
-		OutCount = static_cast<uint32>(sizeof(Triangle_vertices) / sizeof(FVertexSimple));
-		return true;
-	case EPrimitive::EP_GizmoArrow:
-		OutVertices = GizmoArrow_vertices;
-		OutCount = static_cast<uint32>(sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
-		return true;
-	case EPrimitive::EP_Circle:
-		OutVertices = Circle_vertices;
-		OutCount = static_cast<uint32>(sizeof(Circle_vertices) / sizeof(FVertexSimple));
-		return true;
-	case EPrimitive::EP_Plane:
-		OutVertices = Plane_vertices;
-		OutCount = static_cast<uint32>(sizeof(Plane_vertices) / sizeof(FVertexSimple));
-		return true;
-	}
-
-	return false;
-}
+#include "PrimitiveComponent.h"
+#include "RayCast.h"
+#include "SceneManager.h"
 
 FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	: mCamera(FTransform({ -2.0f, 1.0f, 1.0f }, { 0, 30, 0 }, { 1, 1, 1 }))
@@ -65,130 +33,71 @@ FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	}
 }
 
-AActor* FEditorViewportClient::PerformMousePicking(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio, const TArray<FRenderInfo>& RenderInfos)
+AActor* FEditorViewportClient::PerformMousePicking(float perspectiveRatio, const FRenderCollector& RenderCollector, FSceneManager &SceneManager)
 {
 	bMouseHit = false;
 
+	// 씬은 ImGui "Viewport" 창의 이미지 위에 그려진다.
+	// 그래서 역투영에 넣을 좌표계 기준은 윈도우 전체가 아니라 그 이미지다.
+	// 커서를 이미지 좌상단 기준으로 옮기고, 화면 크기도 이미지 크기를 쓴다.
+	const float ViewportWidth = SceneManager.GetViewportWidth();
+	const float ViewportHeight = SceneManager.GetViewportHeight();
+	if (ViewportWidth <= 0.f || ViewportHeight <= 0.f)
+	{
+		return nullptr;
+	}
+
+	const int32 MouseXInViewport = WindowApplication.Input.CursorX - static_cast<int32>(SceneManager.GetViewportX());
+	const int32 MouseYInViewport = WindowApplication.Input.CursorY - static_cast<int32>(SceneManager.GetViewportY());
+
 	// 투영 방식에 따라 광선을 만드는 법만 다르다. 두 점을 구하고 나면 이후 판정은 완전히 같다
 	FVector NearPoint, FarPoint;
-	//if (bPerspectiveProjection)
-	//{
-	//	DeprojectScreenToWorld(WindowApplication.Input.CursorX - ViewportInfo.TopLeftX, WindowApplication.Input.CursorY - ViewportInfo.TopLeftY,
-	//		ViewportInfo.Width, ViewportInfo.Height, 0.1f, 100.f, NearPoint, FarPoint);
-	//}
-	//else
-	//{
-	//	DeprojectScreenToWorldForOrtho(WindowApplication.Input.CursorX - ViewportInfo.TopLeftX, WindowApplication.Input.CursorY - ViewportInfo.TopLeftY,
-	//		ViewportInfo.Width, ViewportInfo.Height, 0.1f, 100.f, NearPoint, FarPoint);
-	//}
-	DeprojectScreenToWorldForUnified(WindowApplication.Input.CursorX - ViewportInfo.TopLeftX, WindowApplication.Input.CursorY - ViewportInfo.TopLeftY,
-		ViewportInfo.Width, ViewportInfo.Height, 0.1f, 100.f, mCamera.mOrthoDistance, perspectiveRatio, NearPoint, FarPoint);
+	DeprojectScreenToWorldForUnified(MouseXInViewport, MouseYInViewport,
+		ViewportWidth, ViewportHeight, 0.1f, 100.f, mCamera.mOrthoDistance, perspectiveRatio, NearPoint, FarPoint);
 
 	mRayNear = NearPoint;
 	mRayFar = FarPoint;
 
 	float NearlistT = FLT_MAX;
 	AActor* NearestActor = nullptr;
-#if 0
-	// 드래그 중에는 히트 판정을 하지 않는다.
-	// 빠르게 끌면 커서가 축 캡슐을 벗어나는데, 그때 eAxis가 NONE이 되면 드래그가 끊긴다.
-	if (mGizmo.mDraggingAxis != EGIZMO_AXIS::NONE)
+	const FPickingRay PickingRay(NearPoint, FarPoint);
+
+	// 충돌 판정은 컴포넌트가 스스로 한다. 여기서는 어느 것이 가장 가까운지만 고른다.
+	for (UPrimitiveComponent* PickTarget : RenderCollector.PickTargets)
 	{
-		bMouseHit = true;
-		mGizmo.mbHovered = true;
-		mGizmo.eAxis = mGizmo.mDraggingAxis;   // 끌고 있는 축의 강조를 유지한다
-		return;
-	}
-
-	// Gizmo 탐색
-	if (mGizmo.IsRayInGizmo(NearPoint, FarPoint))
-	{
-		bMouseHit = true;
-		mGizmo.mbHovered = true;
-		// gizmo highlight
-		return;
-	}
-#endif
-
-	FVector RayDirection = FarPoint - NearPoint;
-	float RayLength = RayDirection.Length();
-	RayDirection /= RayLength;
-
-	FRay Ray(NearPoint, RayDirection);
-	for (AActor* Actor : World->GetActors())
-	{
-		USceneComponent* RootComponent = Actor->GetRootComponent();
-		UPrimitiveComponent* PrimitiveComponent = RootComponent->Cast<UPrimitiveComponent>();
-		if (!PrimitiveComponent)
+		float HitT = FLT_MAX;
+		if (!PickTarget->RayCastComponent(PickingRay, HitT))
 		{
 			continue;
 		}
 
-		FTransform Transform = Actor->GetTransform();
-		const FMatrix WorldMatrix = Transform.MakeMatrix();
-		const TSharedPtr<FStaticMeshAsset>& MeshAsset = PrimitiveComponent->GetMesh();
-
-		// AABB 충돌체를 이용한 광선-메시 충돌 최적화
-		FAABB BoundingBox = MeshAsset->GetLocalBoundingBox().ToWorld(WorldMatrix);
-		if (!RayIntersectsAABB(Ray, RayLength, BoundingBox))
+		if (HitT < NearlistT)
 		{
-			continue;
-		}
-
-		// 메시 충돌체를 이용한 광선-삼각형 충돌 판정
-		const FVertexSimple* vertices = nullptr;
-		uint32 length = 0;
-		if (!GetPrimitiveMesh(PrimitiveComponent->GetPrimitiveType(), vertices, length))
-		{
-			continue;
-		}
-
-		const FMatrix WorldToLocal = WorldMatrix.Inverse();
-		if (WorldToLocal == FMatrix::Zero)
-		{
-			//역행렬이 존재하지 않으면(스케일이 작아 det이 0에 가까운 경우) Racast 대상에서 제외
-			continue;
-		}
-
-		const FVector LocalNear = WorldToLocal.TransformPosition(NearPoint);
-		const FVector LocalFar = WorldToLocal.TransformPosition(FarPoint);
-
-		// 삼각형 리스트라 정점 3개씩 묶인다
-		for (uint32 i = 0; i + 2 < length; i += 3)
-		{
-			const FVector V0 = vertices[i].GetPosition();
-			const FVector V1 = vertices[i + 1].GetPosition();
-			const FVector V2 = vertices[i + 2].GetPosition();
-
-			float OutT, OutU, OutV;
-			if (RayIntersectsTriangle(LocalNear, LocalFar, V0, V1, V2, OutT, OutU, OutV) && OutT < NearlistT)
-			{
-				// 같은 메시 안에서도 더 가까운 삼각형이 뒤에 나올 수 있으므로 break 하지 않는다
-				NearlistT = OutT;
-				bMouseHit = true;
-				NearestActor = Actor;  // 가장 가까운 액터를 반환
-			}
+			NearlistT = HitT;
+			bMouseHit = true;
+			NearestActor = PickTarget->GetOwner();  // 가장 가까운 액터를 반환
 		}
 	}
 
 	return NearestActor;
 }
 
-void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio, FRenderCollector& RenderCollector)
+void FEditorViewportClient::Update(float deltaTime, FSceneManager* sceneManager, float perspectiveRatio, FRenderCollector& RenderCollector)
 {
 	const FInputState& Input = WindowApplication.Input;
-	ImGuiIO& io = ImGui::GetIO();
+	bool bAllowMouse = sceneManager->IsViewportHovered();
+	bool bAllowKeyboardInput = bAllowMouse && !ImGui::GetIO().WantCaptureKeyboard;
 
 	// Camera Rotate
 	// 회전을 이동보다 먼저, 이번 프레임에 돌린 방향으로 바로 움직이게
-	if (!io.WantCaptureMouse && Input.IsDown(VK_RBUTTON))
+	if (bAllowMouse && Input.IsDown(VK_RBUTTON))
 	{
 		mCamera.Rotate(Input.MouseDX, Input.MouseDY);
 	}
 
 	// Camera Velocity
 	FVector MoveDir(0.f, 0.f, 0.f);
-	if (!io.WantCaptureKeyboard)
+	if (bAllowKeyboardInput)
 	{
 		const FMatrix R = FMatrix::Rotate(mCamera.Transform.Rotation);
 		const FVector Forward = R.GetUnitAxis(EAxis::X);
@@ -209,7 +118,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 	}
 
 	//Camera Translate
-	if (!io.WantCaptureMouse && Input.MouseWheelDelta != 0.0f)
+	if (bAllowMouse && Input.MouseWheelDelta != 0.0f)
 	{
 		//키 입력이 없으면 마우스 휠은 줌인/줌아웃
 		if (!bMoveKeyDown)
@@ -244,7 +153,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 
 	mCamera.Transform.Location += mCamera.Velocity * deltaTime;
 
-	if (!io.WantCaptureKeyboard)
+	if (bAllowKeyboardInput)
 	{
 		if (Input.WasPressed(VK_SPACE))
 		{
@@ -260,50 +169,6 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 			mGizmo.SetWorldMode(false);
 		}
 	}
-
-	AActor* HitActor = PerformMousePicking(ViewportInfo, sceneManager->GetCurrentWorld(), perspectiveRatio, RenderCollector.RenderInfos);
-    if (!io.WantCaptureMouse && Input.WasPressed(VK_LBUTTON) && !mGizmo.IsDragging() && !mGizmo.IsMouseOverHandle())
-    {
-		if (HitActor)
-		{
-			sceneManager->SetSelectedActor(HitActor);
-		}
-		else
-		{
-			sceneManager->ResetSelectedActor();
-		}
-    }
-
-	AActor* SelectedActor = sceneManager->GetSelectedActor();
-	if (SelectedActor)
-	{
-		FTransform Transform = SelectedActor->GetTransform();
-		USceneComponent* RootComponent = SelectedActor->GetRootComponent();
-
-		UPrimitiveComponent* PrimitiveComponent = RootComponent->Cast<UPrimitiveComponent>();
-		if (PrimitiveComponent)
-		{
-			// 선택된 액터의 AABB를 화면에 표시
-			FMatrix WorldMatrix = Transform.MakeMatrix();
-			const FAABB& AABB = PrimitiveComponent->GetMesh()->GetLocalBoundingBox().ToWorld(WorldMatrix);
-
-			AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End)
-			{
-				FVector4 WorldStart = FVector4(Start, 1.f);
-				FVector4 WorldEnd = FVector4(End, 1.f);
-
-				FRenderLineInfo LineInfo;
-				LineInfo.Start = WorldStart.ToVec3();
-				LineInfo.End = WorldEnd.ToVec3();
-				LineInfo.Color = FVector4(1.f, 0.f, 0.f, 1.f); // 빨간색
-				LineInfo.Thickness = 0.01f;
-
-				RenderCollector.LineInfos.Add(LineInfo);
-			});
-		}
-	}
-
-	mGizmo.Update(SelectedActor);
 }
 
 void FEditorViewportClient::DeprojectScreenToWorld(int32 MouseX, int32 MouseY, float ScreenW, float ScreenH, float NearZ, float FarZ, FVector& OutNearPoint, FVector& OutFarPoint)

@@ -46,6 +46,7 @@ public:
 	FSceneManager();
 	~FSceneManager();
 
+	void Tick(float deltaTime);
 	void Update(float deltaTime, FRenderCollector& outCollector);
 	void UpdateGUI(const FGuiReference& guiReference);
 
@@ -68,6 +69,11 @@ public:
 	void ResetSelectedActor() { mSelectedActor = nullptr; }
 
 	float GetPanelWidth() const;
+	float GetViewportX() const { return mViewportX; }
+	float GetViewportY() const { return mViewportY; }
+	float GetViewportWidth() const { return mViewportWidth; }
+	float GetViewportHeight() const { return mViewportHeight; }
+	bool IsViewportHovered() const { return mbViewportHovered; }
 
 private:
 	static constexpr float MIN_WIDTH_RATIO = 0.2f;
@@ -77,6 +83,11 @@ private:
 	static constexpr float WINDOW_PROPERTY_HEIGHT_RATIO = 0.3f;
 
 	float mPanelWidth;
+	float mViewportX;
+	float mViewportY;
+	float mViewportWidth;
+	float mViewportHeight;
+	bool mbViewportHovered = false;
 
 	UWorld* mCurrentWorld = nullptr;
 	AActor* mSelectedActor = nullptr;

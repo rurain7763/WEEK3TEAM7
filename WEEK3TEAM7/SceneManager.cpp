@@ -1,5 +1,4 @@
-﻿
-#include "SceneManager.h"
+﻿#include "SceneManager.h"
 
 #include <algorithm>
 #include <format>
@@ -18,12 +17,16 @@
 #include "FLogManager.h"
 
 #include "ImGui/imgui.h"
+#include "ImGui/imgui_internal.h"
 #include "ImGui/imgui_impl_dx11.h"
 #include "imGui/imgui_impl_win32.h"
 
 #include "FrameTimer.h"
 #include "CubeComponent.h"
 #include "ActorComponent.h"
+#include "WindowApplication.h"
+
+#include "Cube.h"
 #include "Assets.h"
 #include "UTextComponent.h"
 
@@ -31,6 +34,10 @@ FSceneManager::FSceneManager()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	mPanelWidth = io.DisplaySize.x * MIN_WIDTH_RATIO;
+	mViewportX = 0;
+	mViewportY = 0;
+	mViewportWidth = WindowApplication.PendingWidth;
+	mViewportHeight = WindowApplication.PendingHeight;
 
 	//mCurrentWorld = FObjectFactory::ConstructObject<UWorld>();
 
@@ -53,6 +60,11 @@ FSceneManager::~FSceneManager()
 	delete mCurrentWorld;
 }
 
+void FSceneManager::Tick(float deltaTime)
+{
+	mCurrentWorld->Tick(deltaTime);
+}
+
 void FSceneManager::Update(float deltaTime, FRenderCollector& outCollector)
 {
 	// Todo: Save / Load
@@ -70,6 +82,74 @@ void FSceneManager::UpdateGUI(const FGuiReference& guiReference)
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
+	{
+		// Docking
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		const ImGuiID dockspaceID = ImGui::GetID("EditorDockSpace");
+
+		const ImGuiDockNodeFlags flags = ImGuiDockNodeFlags_PassthruCentralNode;
+
+		// 저장된 도킹 노드가 없을 때만 기본 배치 생성
+		if (!ImGui::DockBuilderGetNode(dockspaceID))
+		{
+			ImGui::DockBuilderAddNode(dockspaceID, ImGuiDockNodeFlags_DockSpace | flags);
+			ImGui::DockBuilderSetNodeSize(dockspaceID, viewport->WorkSize);
+
+			ImGuiID center = dockspaceID;
+			ImGuiID left;
+			ImGuiID bottom;
+
+			// 왼쪽 패널 2%
+			ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.2f, &left, &center);
+
+			// 나머지 영역 아래쪽에 콘솔 30%
+			ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.3f, &bottom, &center);
+
+			ImGuiID leftTop;
+			ImGuiID leftRest;
+			ImGui::DockBuilderSplitNode(left, ImGuiDir_Up, 0.4f, &leftTop, &leftRest);
+
+			ImGuiID leftMiddle;
+			ImGuiID leftBottom;
+			ImGui::DockBuilderSplitNode(leftRest, ImGuiDir_Up, 0.5f, &leftMiddle, &leftBottom);
+
+			ImGui::DockBuilderDockWindow("Viewport", center);
+			ImGui::DockBuilderDockWindow("Console Window", bottom);
+			ImGui::DockBuilderDockWindow("Jungle Control Panel", leftTop);
+			ImGui::DockBuilderDockWindow("Jungle Property Window", leftMiddle);
+			ImGui::DockBuilderDockWindow("Object List Panel", leftBottom);
+
+			ImGui::DockBuilderFinish(dockspaceID);
+		}
+
+		ImGui::DockSpaceOverViewport(dockspaceID, viewport, flags);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+
+		mbViewportHovered = false;
+		if (ImGui::Begin("Viewport"))
+		{
+			const ImVec2 size = ImGui::GetContentRegionAvail();
+
+			if (size.x > 0 && size.y > 0)
+			{
+				const TSharedPtr<FRenderTarget2D>& sceneRenderTarget = guiReference.GraphicsManager->GetSceneRenderTarget();
+				ImGui::Image((ImTextureID)(intptr_t)sceneRenderTarget->SRV.Get(), size);
+				mbViewportHovered = ImGui::IsItemHovered();
+
+				const ImVec2 imageMin = ImGui::GetItemRectMin();
+				const ImVec2 imageMax = ImGui::GetItemRectMax();
+
+				mViewportX = imageMin.x;
+				mViewportY = imageMin.y;
+				mViewportWidth = size.x;
+				mViewportHeight = size.y;
+			}
+		}
+		ImGui::End();
+
+		ImGui::PopStyleVar();
+	}
+
 	updateControlPanelGUI(guiReference);
 	updatePropertyWindowGUI(guiReference);
 	updateObjectListPanelGUI(guiReference);
@@ -83,15 +163,10 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 
 	float panelHeight = io.DisplaySize.y * CONTROL_PANEL_HEIGHT_RATIO;
 
-	ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+	ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, panelHeight), ImGuiCond_FirstUseEver);
 
-	ImGui::SetNextWindowSizeConstraints(
-		ImVec2(io.DisplaySize.x * MIN_WIDTH_RATIO, panelHeight),
-		ImVec2(io.DisplaySize.x * MAX_WIDTH_RATIO, panelHeight)
-	);
-	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, panelHeight), ImGuiCond_Always);
-
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 	ImGui::Begin("Jungle Control Panel", nullptr, flags);
 	mPanelWidth = ImGui::GetWindowWidth();
 
@@ -289,6 +364,12 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 			guiReference.GraphicsManager->SetShowWorldAxis(bShowWorldAxis);
 		}
 
+		bool bShowUUIDText = guiReference.GraphicsManager->GetShowUUIDText();
+		if (ImGui::Checkbox("UUID", &bShowUUIDText))
+		{
+			guiReference.GraphicsManager->SetShowUUIDText(bShowUUIDText);
+		}
+
 		bool bOrthographic = guiReference.GraphicsManager->IsOrthographicTarget();
 		if (ImGui::Checkbox("Orthogonal", &bOrthographic))
 		{
@@ -386,15 +467,10 @@ void FSceneManager::updatePropertyWindowGUI(const FGuiReference& guiReference)
 	float controlPanelHeight = io.DisplaySize.y * CONTROL_PANEL_HEIGHT_RATIO;
 	float propertyHeight = io.DisplaySize.y * WINDOW_PROPERTY_HEIGHT_RATIO;
 
-	ImGui::SetNextWindowPos(ImVec2(0.0f, controlPanelHeight), ImGuiCond_Always);
+	ImGui::SetNextWindowPos(ImVec2(0.0f, controlPanelHeight), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, propertyHeight), ImGuiCond_FirstUseEver);
 
-	ImGui::SetNextWindowSizeConstraints(
-		ImVec2(io.DisplaySize.x * MIN_WIDTH_RATIO, propertyHeight),
-		ImVec2(io.DisplaySize.x * MAX_WIDTH_RATIO, propertyHeight)
-	);
-	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, propertyHeight), ImGuiCond_Always);
-
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 
 	ImGui::Begin("Jungle Property Window", nullptr, flags);
 
@@ -478,15 +554,10 @@ void FSceneManager::updateObjectListPanelGUI(const FGuiReference& guiReference)
 	float offsetHeight = io.DisplaySize.y * (CONTROL_PANEL_HEIGHT_RATIO + WINDOW_PROPERTY_HEIGHT_RATIO);
 	float objectListPanelHeight = io.DisplaySize.y - offsetHeight;
 
-	ImGui::SetNextWindowPos(ImVec2(0.0f, offsetHeight), ImGuiCond_Always);
+	ImGui::SetNextWindowPos(ImVec2(0.0f, offsetHeight), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, objectListPanelHeight), ImGuiCond_FirstUseEver);
 
-	ImGui::SetNextWindowSizeConstraints(
-		ImVec2(io.DisplaySize.x * MIN_WIDTH_RATIO, objectListPanelHeight),
-		ImVec2(io.DisplaySize.x * MAX_WIDTH_RATIO, objectListPanelHeight)
-	);
-	ImGui::SetNextWindowSize(ImVec2(mPanelWidth, objectListPanelHeight), ImGuiCond_Always);
-
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse;
 
 	ImGui::Begin("Object List Panel", nullptr, flags);
 	{

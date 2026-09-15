@@ -8,8 +8,16 @@
 
 class AActor;
 class URenderer;
+class FSceneManager;
 
-enum class AxisNumber { None, X, Y, Z, Cameara };
+enum class EAxisNumber 
+{ 
+    None, 
+    X, 
+    Y, 
+    Z, 
+    Cameara
+};
 
 class FGizmo
 {
@@ -19,8 +27,8 @@ public:
     void SetOperation(EGIZMO_TYPE Operation);
     EGIZMO_TYPE GetOperation() const;
 
-    void Update(AActor* TargetActor);
-    void Draw(AActor* TargetActor, const FVector& CameraPosition, const FMatrix& ViewProjection);
+    void Update(FSceneManager* SceneManager);
+    void Render(FSceneManager* SceneManager, const FVector& CameraPosition, const FMatrix& ViewProjection);
     bool IsMouseOverHandle() const;
     bool IsDragging() const { return bIsSelected; }
     void Reset();
@@ -31,19 +39,24 @@ private:
     {
         FVector2 Start, End;
         FVector Direction;
-        AxisNumber Axis;
+        EAxisNumber Axis;
     };
-    TArray<FHandleSegment> HandleScreenSegments;
+
     static constexpr float HandleHitRadius = 5.f;
+
     URenderer& Renderer;
-    bool bWorldMode = true;
+
     EGIZMO_TYPE CurrentOperation = EGIZMO_TYPE::TRANSLATE;
-    FVector2 PrevMousePos;
-    FVector2 HandleScreenDirection;
-    FVector AxisDirection;
+    bool bWorldMode = true;
     bool bIsSelected = false;
     bool bIsHoveredAxis = false;
-    AxisNumber SelectedAxis = AxisNumber::None;
-    AxisNumber HoveredAxis = AxisNumber::None;
+
+    TArray<FHandleSegment> HandleScreenSegments;
+    FVector2 PrevMousePos;
+    FVector2 HandleScreenDirection;
+    EAxisNumber HoveredAxis = EAxisNumber::None;
+    EAxisNumber SelectedAxis = EAxisNumber::None;
+    FVector AxisDirection;
+
     int32 TargetUUID = -1;
 };

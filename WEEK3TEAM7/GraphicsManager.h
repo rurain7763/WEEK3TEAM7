@@ -25,7 +25,7 @@ public:
 	~FGraphicsManager();
 
 	//void Prepare(const Camera* mCamera);
-	void Prepare(const FCamera* Camera);
+	void Prepare(const FCamera* Camera,float viewportWidth, float viewportHeight);
 	void GizmoPrepare();
 
 	//void Render(FTransform worldTransformMatrix, EPrimitive ePrimitive); // FRenderInfo
@@ -53,6 +53,7 @@ public:
 
 	// Todo: Change name
 	URenderer* GetRenderer() const;
+	void OnResize(UINT width, UINT height);
 
 	//Highlight
 	//Line batch
@@ -64,6 +65,9 @@ public:
 	bool GetShowWorldAxis() const { return mbShowWorldAxis; }
 	void SetShowWorldAxis(bool bShow) { mbShowWorldAxis = bShow; }
 
+	bool GetShowUUIDText() const { return mbShowUUIDText; }
+	void SetShowUUIDText(bool bShow) { mbShowUUIDText = bShow; }
+
 	static FVector GetPrimitiveCenter(EPrimitive type);
 	static FVector GetPrimitiveHalfExtent(EPrimitive type);
 	void RenderHighLight(const FRenderInfo& RI);
@@ -73,6 +77,7 @@ public:
 	bool IsOrthographicTarget() const;
 	void UpdateProjectionTransition(float deltaTime);
 
+	inline const TSharedPtr<FRenderTarget2D>& GetSceneRenderTarget() const { return mSceneRenderTarget; }
 	inline FRenderCollector& GetRenderCollector() { return mRenderCollector; }
 	inline TArray<FRenderQuadInfo>& GetRenderQuadInfos() { return mRenderCollector.QuadInfos; }
 	inline TArray<FRenderInfo>& GetRenderInfos() { return mRenderCollector.RenderInfos; }
@@ -98,6 +103,7 @@ private:
 	EViewModeIndex mViewModeIndex = EViewModeIndex::VMI_Lit;
 	bool mbPerspectiveProjection;
 	bool mbShowWorldAxis = true;
+	bool mbShowUUIDText = true;
 	float mAspect;
 	float mProjectionRatio; // 0.0f ~ 1.0f, 0이면 직교, 1이면 원근, 그 사이면 혼합
 
@@ -108,8 +114,9 @@ private:
 	float mProjectionDuration = 1.0f;
 	bool mbProjectionTransitioning = false;
 
+	TSharedPtr<FRenderTarget2D> mSceneRenderTarget;
+	TSharedPtr<FDepthStencil> mSceneDepthStencil;
 	TSharedPtr<FRenderPipeline> mMeshPipeline;
 
-	// 메시·쿼드 렌더 정보를 함께 들고 있다. 월드와 뷰포트가 여기에 채워 넣는다.
 	FRenderCollector mRenderCollector;
 };

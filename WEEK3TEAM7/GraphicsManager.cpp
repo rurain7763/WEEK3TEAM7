@@ -21,7 +21,9 @@ FGraphicsManager::FGraphicsManager(HWND hWindow) :
 	mRenderer->CreateLineVertexBuffer(LINE_VERTEX_CAPACITY);
 #endif
 
-	mAspect = mRenderer->ViewportInfo.Width / mRenderer->ViewportInfo.Height;
+	mAspect = mRenderer->GetWidth() / static_cast<float>(mRenderer->GetHeight());
+	mSceneRenderTarget = mRenderer->CreateRenderTarget2D(mRenderer->GetWidth(), mRenderer->GetHeight(), DXGI_FORMAT_R8G8B8A8_UNORM);
+	mSceneDepthStencil = mRenderer->CreateDepthStencil(mRenderer->GetWidth(), mRenderer->GetHeight());
 
 	mMeshPipeline = mRenderer->CreateRenderPipeline();
 	mMeshPipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, { EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe });
@@ -43,13 +45,15 @@ FGraphicsManager::~FGraphicsManager()
 	delete mRenderer;
 }
 
-void FGraphicsManager::Prepare(const FCamera* mCamera)
+void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, float viewportHeight)
 {
 	// Cache view and projection matrices for rendering
 	const float nearZ = 0.1f;
 	const float farZ = 100.0f;
 
 	float d = mCamera->mOrthoDistance;
+	
+	mAspect = viewportWidth / viewportHeight;
 
 	FMatrix view = mCamera->GetViewMatrix();
 	FMatrix projection_u_p = mCamera->GetUnifiedProjectionMatrix(mAspect, mCamera->mFovDegree, d, nearZ, farZ, 1.0f);
@@ -63,7 +67,7 @@ void FGraphicsManager::Prepare(const FCamera* mCamera)
 
 	// 뷰 모드를 렌더러에 전달한다. BindPipeline이 드로우마다 이 값을 보고
 	// 솔리드/와이어프레임 래스터라이저를 고른다.
-	mRenderer->ViewModeIndex = mViewModeIndex;
+	mRenderer->SetViewModeIndex(mViewModeIndex);
 
 	mRenderer->Prepare(view * projection_u);
 
@@ -83,6 +87,8 @@ void FGraphicsManager::Prepare(const FCamera* mCamera)
 	// 깊이 테스트가 켜져 있으면 나중에 그린 FarCube 가 깊이 비교에서 탈락해
 	// NearCube(주황)가 앞에 남고, 꺼져 있으면 FarCube(파랑)가 그 위를 덮어쓴다.
 	//mRenderer->UpdateConstantViewProjection(viewProjection);
+
+	mRenderer->BindRenderTarget(mSceneRenderTarget, mSceneDepthStencil);
 }
 
 void FGraphicsManager::GizmoPrepare()
@@ -238,7 +244,6 @@ void FGraphicsManager::Display()
 
 void FGraphicsManager::Update(float deltaTime)
 {
-	mAspect = mRenderer->ViewportInfo.Width / mRenderer->ViewportInfo.Height;
 }
 
 bool FGraphicsManager::IsPerspectiveProjection() const
@@ -256,6 +261,26 @@ URenderer* FGraphicsManager::GetRenderer() const
 	assert(mRenderer != nullptr);
 
 	return mRenderer;
+}
+
+void FGraphicsManager::OnResize(UINT width, UINT height)
+{
+	if (width == 0 || height == 0)
+	{
+		return;
+	}
+
+	if (mSceneRenderTarget)
+	{
+		mSceneRenderTarget = mRenderer->CreateRenderTarget2D(width, height, DXGI_FORMAT_R8G8B8A8_UNORM);
+	}
+	
+	if (mSceneDepthStencil)
+	{
+		mSceneDepthStencil = mRenderer->CreateDepthStencil(width, height);
+	}
+
+	mRenderer->OnResize(width, height);
 }
 
 FVector FGraphicsManager::GetPrimitiveCenter(EPrimitive type)
@@ -307,7 +332,7 @@ void FGraphicsManager::RenderHighLight(const FRenderInfo& RI)
 		, 0.01f);
 	//const float H = mbPerspectiveProjection ? 2.0f * Depth * TanHalfFov : 5.774f;
 	const float H = 2.0f * effectiveDepth * TanHalfFov;
-	const float WorldThickness = OUTLINE_PIXELS * H / mRenderer->ViewportInfo.Height;
+	const float WorldThickness = OUTLINE_PIXELS * H / mRenderer->GetHeight();
 
 
 	// 축마다 월드 공간에서 WorldThickness 만큼만 자라도록 배율을 따로 구한다.

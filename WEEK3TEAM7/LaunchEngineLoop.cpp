@@ -61,8 +61,9 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGui_ImplWin32_Init((void*)hWnd);
-	ImGui_ImplDX11_Init(mGraphicsManager->GetRenderer()->Device, mGraphicsManager->GetRenderer()->DeviceContext);
+	ImGui_ImplDX11_Init(mGraphicsManager->GetRenderer()->GetDevice(), mGraphicsManager->GetRenderer()->GetDeviceContext());
 	auto& IO = ImGui::GetIO();
+	IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	IO.Fonts->AddFontFromFileTTF(
 		"C:/Windows/Fonts/malgun.ttf",
 		18.0f,
@@ -149,18 +150,14 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	FRenderCollector& RenderCollector = mGraphicsManager->GetRenderCollector();
 	RenderCollector.Camera = &ViewportClient->GetCamera();
+	RenderCollector.bShowUUIDText = mGraphicsManager->GetShowUUIDText();
 
 	//Input Threads
 	{
 		WindowApplication.ProcessDeferredEvents();
 
-		//ImGui Input
-		{
-			mSceneManager->UpdateGUI({ *FrameTimer, mGraphicsManager, ViewportClient, mFileManager, mAssetManager });
-		}
-
 		mGraphicsManager->UpdateProjectionTransition(deltaTime);
-		ViewportClient->Update(deltaTime, mGraphicsManager->GetRenderer()->ViewportInfo, mSceneManager, mGraphicsManager->GetPerspectiveRatio(), RenderCollector);
+		ViewportClient->Update(deltaTime, mSceneManager, mGraphicsManager->GetPerspectiveRatio(), RenderCollector);
 	}
 
 	//Physics Threads
@@ -170,32 +167,77 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	//Game Threads
 	{
-		// 레이캐스트보다 먼저 돌려야 한다.
-		// 여기서 RenderInfos 가 갱신되고, RayCast 가 그걸 읽는다.
+		mSceneManager->Tick(deltaTime);
 		mSceneManager->Update(deltaTime, RenderCollector);
+	}
+
+	//mouse picking
+	{
+		const FInputState& Input = WindowApplication.Input;
+
+		// 뷰포트가 ImGui 창이 되면서 그 위에서는 io.WantCaptureMouse 가 항상 true 다.
+		// 그대로 두면 씬을 클릭해도 선택이 되지 않는다. 카메라/기즈모와 같은 기준을 쓴다.
+		AActor* HitActor = ViewportClient->PerformMousePicking(mGraphicsManager->GetPerspectiveRatio(), RenderCollector, *mSceneManager);
+		if (mSceneManager->IsViewportHovered() && Input.WasPressed(VK_LBUTTON) && !ViewportClient->mGizmo.IsDragging() && !ViewportClient->mGizmo.IsMouseOverHandle())
+		{
+			if (HitActor)
+			{
+				mSceneManager->SetSelectedActor(HitActor);
+			}
+			else
+			{
+				mSceneManager->ResetSelectedActor();
+			}
+		}
+
+		AActor* SelectedActor = mSceneManager->GetSelectedActor();
+		if (SelectedActor)
+		{
+			FTransform Transform = SelectedActor->GetTransform();
+			USceneComponent* RootComponent = SelectedActor->GetRootComponent();
+
+			UPrimitiveComponent* PrimitiveComponent = RootComponent->Cast<UPrimitiveComponent>();
+			if (PrimitiveComponent)
+			{
+				// 선택된 액터의 AABB를 화면에 표시
+				FMatrix WorldMatrix = Transform.MakeMatrix();
+				const FAABB& AABB = PrimitiveComponent->GetMesh()->GetLocalBoundingBox().ToWorld(WorldMatrix);
+
+				AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End)
+					{
+						FVector4 WorldStart = FVector4(Start, 1.f);
+						FVector4 WorldEnd = FVector4(End, 1.f);
+
+						FRenderLineInfo LineInfo;
+						LineInfo.Start = WorldStart.ToVec3();
+						LineInfo.End = WorldEnd.ToVec3();
+						LineInfo.Color = FVector4(1.f, 0.f, 0.f, 1.f); // 빨간색
+						LineInfo.Thickness = 0.01f;
+
+						RenderCollector.LineInfos.Add(LineInfo);
+					});
+			}
+		}
+
+		ViewportClient->mGizmo.Update(mSceneManager);
 	}
 
 	//Render Threads
 	{
 		if (WindowApplication.bPendingResize)
 		{
-			float viewportWidth = mSceneManager->GetPanelWidth();
-			float viewportHeight = (1.f - ConsoleWindow::HEIGHT_RATIO) * WindowApplication.PendingHeight;
-
-			mGraphicsManager->GetRenderer()->OnResize(WindowApplication.PendingWidth, WindowApplication.PendingHeight, viewportWidth, viewportHeight);
+			mGraphicsManager->OnResize(WindowApplication.PendingWidth, WindowApplication.PendingHeight);
 			WindowApplication.bPendingResize = false;
 		}
 
 		mGraphicsManager->Update(deltaTime);
-		mGraphicsManager->Prepare(&ViewportClient->mCamera);
+		mGraphicsManager->Prepare(&ViewportClient->mCamera, mSceneManager->GetViewportWidth(), mSceneManager->GetViewportHeight());
 
 		mGraphicsManager->DrawWorldAxis();
 		mGraphicsManager->FlushLines();
 
 		mGraphicsManager->Render();
 		
-		//월드 축. 액터 뒤에 그려서 같은 깊이 버퍼로 가려지게 한다 (기즈모와 달리 깊이를 지우지 않는다)
-
 		//강조
 		if (mSceneManager->GetSelectedActor())
 		{
@@ -204,10 +246,15 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			mGraphicsManager->RenderHighLight(clickedRenderInfo);
 		}
 
-		ViewportClient->mGizmo.Draw(mSceneManager->GetSelectedActor(), ViewportClient->mCamera.Transform.Location, mGraphicsManager->GetViewProjectionMatrix());
+		ViewportClient->mGizmo.Render(mSceneManager, ViewportClient->mCamera.Transform.Location, mGraphicsManager->GetViewProjectionMatrix());
 
 		//ImGui
 		{
+			//ImGui Input
+			mSceneManager->UpdateGUI({ *FrameTimer, mGraphicsManager, ViewportClient, mFileManager, mAssetManager });
+
+			mGraphicsManager->GetRenderer()->BindFrameBuffer();
+
 			ImGui::Render();
 			ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 		}
