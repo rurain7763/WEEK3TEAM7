@@ -119,6 +119,12 @@ struct FMatrix {
 		return result;
 	}
 
+	FMatrix& operator*=(const FMatrix& Other)
+	{
+		*this = *this * Other;
+		return *this;
+	}
+
 	bool operator==(const FMatrix& m) const
 	{
 		for (int row = 0; row < 4; ++row) {

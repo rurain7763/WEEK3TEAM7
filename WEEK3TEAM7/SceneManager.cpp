@@ -27,6 +27,8 @@
 #include "WindowApplication.h"
 
 #include "Cube.h"
+#include "Assets.h"
+#include "UTextComponent.h"
 
 FSceneManager::FSceneManager()
 {
@@ -58,14 +60,14 @@ FSceneManager::~FSceneManager()
 	delete mCurrentWorld;
 }
 
-void FSceneManager::Update(float delaTime)
+void FSceneManager::Update(float deltaTime, FRenderCollector& outCollector)
 {
 	// Todo: Save / Load
 	{
 
 	}
 
-	mCurrentWorld->Update();
+	mCurrentWorld->Update(deltaTime, outCollector);
 }
 
 void FSceneManager::UpdateGUI(const FGuiReference& guiReference)
@@ -170,40 +172,92 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 	// NOTE: This name array must be edited when adding new primitive types to EPrimitive enum.
 	ImGui::SeparatorText("Spawn Actor");
 
-	const char* primitiveTypeNames[] = { "Sphere", "Cube", "Triangle", "GizmoArrow", "Circle" };
-	int32 primitiveTypeIndex = static_cast<int32>(mGuiInputField.PrimitiveType);
-	int32 spawnCount = mGuiInputField.SpawnCount;
+	const char* ActorTypeNames[] = { 
+		"Sphere", 
+		"Cube", 
+		"Triangle", 
+		"GizmoArrow", 
+		"Circle",
+		"SpotLight"
+	};
 
-	if (ImGui::Combo("Primitive Type", &primitiveTypeIndex, primitiveTypeNames, IM_ARRAYSIZE(primitiveTypeNames)))
+	const FClassInfo* ActorClassInfo[] = {
+		UPrimitiveComponent::GetClass(),
+		UPrimitiveComponent::GetClass(),
+		UPrimitiveComponent::GetClass(),
+		UPrimitiveComponent::GetClass(),
+		UPrimitiveComponent::GetClass(),
+		ASpotLight::GetClass()
+	};
+
+	int32 ActorTypeIndex = static_cast<int32>(mGuiInputField.PrimitiveType);
+	int32 SpawnCount = mGuiInputField.SpawnCount;
+	if (ImGui::Combo("Actor Type", &ActorTypeIndex, ActorTypeNames, IM_ARRAYSIZE(ActorTypeNames)))
 	{
-		mGuiInputField.PrimitiveType = static_cast<EPrimitive>(primitiveTypeIndex);
+		mGuiInputField.PrimitiveType = static_cast<EPrimitive>(ActorTypeIndex);
 	}
 	if (ImGui::Button("Spawn"))
 	{
 		for (int32 i = 0; i < mGuiInputField.SpawnCount; ++i)
 		{
-			AActor* newActor = FObjectFactory::SpawnPrimitiveActor(
-				mGuiInputField.PrimitiveType,
-				FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1)
-			);
-			mCurrentWorld->AddActor(newActor);
+			const FClassInfo* ActorClass = ActorClassInfo[ActorTypeIndex];
+
+			AActor* NewActor = nullptr;
+			if (ActorClass->IsChildOf(UPrimitiveComponent::GetClass()))
+			{
+				NewActor = FObjectFactory::SpawnPrimitiveActor(
+					mGuiInputField.PrimitiveType,
+					FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1)
+				);
+			}
+			else if (ActorClass->IsChildOf(ASpotLight::GetClass()))
+			{
+				NewActor = FObjectFactory::ConstructObject<ASpotLight>();
+
+				TSharedPtr<FTexture2DAsset> SpotLightTexture = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(FName("SpotLightIcon"), true);
+
+				UPlaneComponent* PlaneComponent = FObjectFactory::ConstructObject<UPlaneComponent>(FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1));
+				PlaneComponent->SetBillboardCamera(guiReference.ViewportClient->GetCamera());
+				PlaneComponent->SetBillboard(true);
+				PlaneComponent->SetTexture(SpotLightTexture);
+				PlaneComponent->SetDepthState(true, true);
+
+				NewActor->AddRootSceneComponent(PlaneComponent);
+			}
+			else
+			{
+				UE_LOG_ERROR("Unknown actor class: %s", ActorClass->Name.CStr());
+			}
+
+			if (NewActor)
+			{
+				UText3DComponent* Text3DComponent = FObjectFactory::ConstructObject<UText3DComponent>(FVector(0, 0, 1), FRotator(0, 0, 0), FVector(1, 1, 1));
+				Text3DComponent->SetBillboardCamera(guiReference.ViewportClient->GetCamera());
+				Text3DComponent->SetBillboard(true);
+				Text3DComponent->SetText(Utf2Wide(std::format("UUID: {}", NewActor->UUID)));
+				Text3DComponent->SetFontAtlasAsset(FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
+				Text3DComponent->SetDepthState(false, true);
+				
+				NewActor->AddComponent(Text3DComponent);
+
+				mCurrentWorld->AddActor(NewActor);
+			}
 		}
 	}
 	ImGui::SameLine();
-	if (ImGui::InputInt("Number of spawn", &spawnCount))
+	if (ImGui::InputInt("Number of spawn", &SpawnCount))
 	{
-		if (spawnCount < 1)
+		if (SpawnCount < 1)
 		{
-			spawnCount = 1;
+			SpawnCount = 1;
 		}
-		mGuiInputField.SpawnCount = spawnCount;
+		mGuiInputField.SpawnCount = SpawnCount;
 	}
 
 	/*Scene Control*/
 	ImGui::SeparatorText("Scene Control");
 
-	const std::filesystem::path sceneDirectory =
-		std::filesystem::absolute(std::filesystem::path(kDefaultAssetsPath) / std::filesystem::path(kSceneDataDir));
+	const std::filesystem::path sceneDirectory = std::filesystem::absolute(std::filesystem::path(kDefaultAssetsPath) / std::filesystem::path(kSceneDataDir));
 
 	void* ownerWindow = ImGui::GetMainViewport()->PlatformHandleRaw;
 
@@ -286,15 +340,19 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 	FCamera& camera = guiReference.ViewportClient->GetCamera();
 	URenderer* renderer = guiReference.GraphicsManager->GetRenderer();
 
-	//ImGui::SliderFloat("Speed", &Camera.Speed, -10.0f, 10.0f);
+	const char* viewModeNames[] = { "Lit", "Unlit", "Wireframe" };
+
+	EViewModeIndex currentViewMode = guiReference.GraphicsManager->GetViewModeIndex();
+	int32 currentViewModeIndex = static_cast<int32>(currentViewMode);
+	// Combo는 선택이 바뀐 프레임에만 true를 돌려주고, 바뀐 값은 이미
+	// currentViewModeIndex에 들어 있다. 그 안에서 Checkbox를 그리면
+	// 한 프레임만 나타났다 사라져 클릭할 수 없다.
+	if (ImGui::Combo("View Mode", &currentViewModeIndex, viewModeNames, IM_ARRAYSIZE(viewModeNames)))
+	{
+		guiReference.GraphicsManager->SetViewModeIndex(static_cast<EViewModeIndex>(currentViewModeIndex));
+	}
 	if (ImGui::BeginCombo("##ShowFlags", "Show Flags"))
 	{
-		bool bWireFrame = guiReference.GraphicsManager->GetWireFrame();
-		if (ImGui::Checkbox("Wire frame", &bWireFrame))
-		{
-			guiReference.GraphicsManager->SetWireFrame(bWireFrame);
-		}
-
 		bool bShowWorldAxis = guiReference.GraphicsManager->GetShowWorldAxis();
 		if (ImGui::Checkbox("World axis", &bShowWorldAxis))
 		{
@@ -340,6 +398,12 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 	ImGui::Text("FOV     ");
 	ImGui::SameLine();
 	ImGui::SliderFloat("##FOV", &camera.mFovDegree, 0.0f, 180.0f);
+
+	ImGui::Text("Sensitivity");
+	ImGui::SameLine();
+	ImGui::SliderFloat("##CameraSensitivity", &camera.Sensitivity, 0.01f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+	
+
 
 	// 1) 라벨 텍스트를 먼저 그리고 같은 줄로
 	ImGui::Text("Location");
@@ -459,6 +523,41 @@ void FSceneManager::updatePropertyWindowGUI(const FGuiReference& guiReference)
 		{
 			mSelectedActor->SetScale(scaleInput);
 		}
+
+		USceneComponent* rootComponent = mSelectedActor->GetRootComponent();
+		if (rootComponent->IsA<UPrimitiveComponent>())
+		{
+			UPrimitiveComponent* primitiveComponent = rootComponent->Cast<UPrimitiveComponent>();
+
+			TArray<FString> textureAssetNames;
+			guiReference.AssetManager->ForEachMetaInfo([&textureAssetNames](const FAssetMetaInfo& metaInfo) {
+				if (metaInfo.AssetType != EAssetType::Texture2D)
+				{
+					return;
+				}
+				textureAssetNames.Add(metaInfo.AssetName.ToString()); 
+			});
+
+			const TSharedPtr<FTexture2DAsset>& currentTexture = primitiveComponent->GetTexture();
+			FString currentTextureName = currentTexture ? currentTexture->GetAssetName().ToString() : "None";
+			if (ImGui::BeginCombo("Texture", currentTextureName.CStr()))
+			{
+				for (const FString& assetName : textureAssetNames)
+				{
+					bool isSelected = (currentTextureName == assetName);
+					if (ImGui::Selectable(assetName.CStr(), isSelected))
+					{
+						TSharedPtr<FTexture2DAsset> textureAsset = guiReference.AssetManager->GetAssetAs<FTexture2DAsset>(FName(assetName), true);
+						primitiveComponent->SetTexture(textureAsset);
+					}
+					if (isSelected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
+		}
 	}
 	ImGui::End();
 }
@@ -536,6 +635,8 @@ void FSceneManager::updateObjectListPanelGUI(const FGuiReference& guiReference)
 								bDeleteActorOrNull = object;
 							}
 						}
+
+						
 					}
 				}
 				ImGui::EndChild();
@@ -723,16 +824,6 @@ void  FSceneManager::SetSelectedActor(AActor* actor)
 float FSceneManager::GetPanelWidth() const
 {
 	return mPanelWidth;
-}
-
-const TArray<FRenderInfo> FSceneManager::GetRenderInfos() const
-{
-	if (mCurrentWorld)
-	{
-		return mCurrentWorld->GetRenderInfos();
-	}
-
-	return TArray<FRenderInfo>();
 }
 
 const TArray<FRenderInfo> FSceneManager::GetAxisRenderInfos()

@@ -5,13 +5,14 @@
 #include "FLogManager.h"
 #include "FAssetManager.h"
 #include "Assets.h"
+#include "ObjectFactory.h"
+#include "UTextComponent.h"
 
 // 선분 하나당 정점 2개. 축 6개 + 앞으로 붙을 그리드까지 감당할 만큼 잡아둔다
 static constexpr uint32 LINE_VERTEX_CAPACITY = 8192;
 
-FGraphicsManager::FGraphicsManager(HWND hWindow)
-	: mbWireFrame(false)
-	, mbPerspectiveProjection(true)
+FGraphicsManager::FGraphicsManager(HWND hWindow) :
+	mbPerspectiveProjection(true)
 	, mProjectionRatio(1.0f)
 {
 	mRenderer = new URenderer;
@@ -23,10 +24,19 @@ FGraphicsManager::FGraphicsManager(HWND hWindow)
 	mAspect = mRenderer->GetWidth() / static_cast<float>(mRenderer->GetHeight());
 	mSceneRenderTarget = mRenderer->CreateRenderTarget2D(mRenderer->GetWidth(), mRenderer->GetHeight(), DXGI_FORMAT_R8G8B8A8_UNORM);
 	mSceneDepthStencil = mRenderer->CreateDepthStencil(mRenderer->GetWidth(), mRenderer->GetHeight());
+
+	mMeshPipeline = mRenderer->CreateRenderPipeline();
+	mMeshPipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, { EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe });
+	mMeshPipeline->SetDepthStencilState(true, true);
+	mMeshPipeline->SetShader("Assets/Shaders/Mesh.hlsl");
+	mMeshPipeline->AddConstantBuffer<FConstants>();
+	mMeshPipeline->AddConstantBuffer<FMatrix>();
 }
 
 FGraphicsManager::~FGraphicsManager()
 {
+	mMeshPipeline.reset();
+
 #if 0
 	mRenderer->ReleaseLineVertexBuffer();
 #endif
@@ -55,7 +65,11 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 	mProjectionMatrix = projection_u_p;
 	mViewProjectionMatrix = view * projection_u_p;
 
-	mRenderer->Prepare(mbWireFrame, view * projection_u);
+	// 뷰 모드를 렌더러에 전달한다. BindPipeline이 드로우마다 이 값을 보고
+	// 솔리드/와이어프레임 래스터라이저를 고른다.
+	mRenderer->SetViewModeIndex(mViewModeIndex);
+
+	mRenderer->Prepare(view * projection_u);
 
 	float orthoHeight = mCamera->mOrthoHeight;
 	float orthoWidth = orthoHeight * mAspect;
@@ -82,7 +96,7 @@ void FGraphicsManager::GizmoPrepare()
 	mRenderer->RSUpdateState();
 
 }
-void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRenderInfo> renderInfos)
+void FGraphicsManager::Render()
 {
 	FMatrix viewProjection;
 	//if (mbPerspectiveProjection)
@@ -96,18 +110,48 @@ void FGraphicsManager::Render(FAssetManager* mAssetManager, const TArray<FRender
 
 	viewProjection = mViewUnifiedProjectionMatrix;
 
-	for (const FRenderInfo& renderInfo : renderInfos)
+	for (const FRenderLineInfo& lineInfo : mRenderCollector.LineInfos)
 	{
-		TSharedPtr<FStaticMeshAsset> asset = mAssetManager->GetAssetAs<FStaticMeshAsset>(renderInfo.StaticMeshName);
-		if (!asset)
-		{
-			UE_LOG("Error: Static mesh asset not found for name: %s", renderInfo.StaticMeshName.ToString().c_str());
-			continue;
-		}
-
-		mRenderer->RenderPrimitive(asset->GetVertexBuffer(), asset->GetVertexCount(), renderInfo.WorldTransformMatrix);
+		mRenderer->RenderLine(lineInfo);
 	}
+	mRenderCollector.LineInfos.Empty();
+
+	for (const FRenderInfo& renderInfo : mRenderCollector.RenderInfos)
+	{
+		TSharedPtr<FStaticMeshAsset> Asset = renderInfo.StaticMesh;
+
+		mMeshPipeline->ClearShaderResource();
+		mMeshPipeline->ClearSamplerState();
+
+		if (renderInfo.Texture)
+		{
+			FConstants Constants{};
+			Constants.Matrix = renderInfo.WorldTransformMatrix;
+			Constants.Color = FVector4(1, 1, 1, 1);
+			Constants.UseVertexColor = 0;
+			Constants.HasTexture = 1;
+
+			mMeshPipeline->UpdateConstantBuffer(0, Constants);
+			mMeshPipeline->UpdateConstantBuffer(1, mViewUnifiedProjectionMatrix);
+
+			mMeshPipeline->SetShaderResource(0, renderInfo.Texture->GetSRV());
+			mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+
+			mRenderer->RenderPrimitive(mMeshPipeline, Asset->GetVertexBuffer(), Asset->GetVertexCount());
+		}
+		else
+		{
+			mRenderer->RenderPrimitive(Asset->GetVertexBuffer(), Asset->GetVertexCount(), renderInfo.WorldTransformMatrix);
+		}
+	}
+
+	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.QuadInfos)
+	{
+		mRenderer->RenderQuad(QuadInfo);
+	}
+	mRenderCollector.QuadInfos.Empty();
 }
+
 void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const FVector4& color)
 {
 	// 월드 좌표 그대로 넣는다. 그래서 그릴 때 World 행렬이 단위행렬이다
@@ -155,7 +199,7 @@ void FGraphicsManager::DrawWorldAxis()
 	}
 #else
 	mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 2.f);
-	mRenderer->RenderWorldGrid(mViewUnifiedProjectionMatrix);
+	mRenderer->RenderWorldGrid(mViewUnifiedProjectionMatrix, mCameraLocation);
 #endif
 }
 
@@ -183,10 +227,6 @@ void FGraphicsManager::FlushLines()
 #endif
 }
 
-void FGraphicsManager::RenderOverlay(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos) //깊이버퍼 초기화
-{
-	Render(AssetManager, renderInfos);
-}
 /*
 void GraphicsManager::Render(FTransform worldTransformMatrix, EPrimitive ePrimitive)
 {
@@ -327,15 +367,13 @@ void FGraphicsManager::RenderHighLight(const FRenderInfo& RI)
 #endif
 }
 
-
 void FGraphicsManager::StartProjectionTransition(bool orthographic)
 {
 	mProjectionStartRatio = mProjectionRatio;
 	mProjectionTargetRatio = orthographic ? 0.0f : 1.0f;
 	mProjectionElapsed = 0.0f;
 
-	mbProjectionTransitioning =
-		mProjectionStartRatio != mProjectionTargetRatio;
+	mbProjectionTransitioning = mProjectionStartRatio != mProjectionTargetRatio;
 }
 
 bool FGraphicsManager::IsOrthographicTarget() const

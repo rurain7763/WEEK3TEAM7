@@ -9,6 +9,7 @@ enum class EPrimitive
 	EP_Triangle,
 	EP_GizmoArrow,
 	EP_Circle,
+	EP_Plane,
 };
 
 enum EGIZMO_AXIS //어떤축이 선택되었는지
@@ -23,4 +24,15 @@ enum EGIZMO_TYPE {
 	TRANSLATE,
 	ROTATE,
 	SCALE,
+};
+
+enum class EViewModeIndex
+{
+	VMI_Lit,
+	VMI_Unlit,
+	VMI_Wireframe,
+
+	// 실제 뷰 모드가 아니다. 뷰 모드별 배열 크기를 잡는 데 쓴다.
+	// 모드를 추가하면 이 앞에 넣을 것.
+	VMI_Max,
 };

@@ -8,6 +8,7 @@
 #include "JsonUtil.h"
 #include "Console.h"
 #include "Actor.h"
+#include "FAssetManager.h"
 
 UPrimitiveComponent::UPrimitiveComponent()
 {
@@ -33,14 +34,18 @@ void UPrimitiveComponent::Initialize(EPrimitive ePrimitive, FVector location, FR
 	USceneComponent::Initialize(location, rotation, scale3D);
 
 	mePrimitive = ePrimitive;
+
+	FName MeshAssetName;
 	switch (mePrimitive)
 	{
-		case EPrimitive::EP_Sphere:		mMeshAssetName = "SphereMesh"; break;
-		case EPrimitive::EP_Cube:		mMeshAssetName = "CubeMesh"; break;
-		case EPrimitive::EP_Triangle:	mMeshAssetName = "TriangleMesh"; break;
-		case EPrimitive::EP_GizmoArrow:	mMeshAssetName = "GizmoArrowMesh"; break;
-		case EPrimitive::EP_Circle:		mMeshAssetName = "CircleMesh"; break;
+		case EPrimitive::EP_Sphere:		MeshAssetName = "SphereMesh"; break;
+		case EPrimitive::EP_Cube:		MeshAssetName = "CubeMesh"; break;
+		case EPrimitive::EP_Triangle:	MeshAssetName = "TriangleMesh"; break;
+		case EPrimitive::EP_GizmoArrow:	MeshAssetName = "GizmoArrowMesh"; break;
+		case EPrimitive::EP_Circle:		MeshAssetName = "CircleMesh"; break;
 	}
+
+	mMeshAsset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(MeshAssetName);
 }
 
 UPrimitiveComponent::~UPrimitiveComponent()
@@ -66,21 +71,16 @@ void UPrimitiveComponent::DeserializeClass(const json::JSON& inJson)
 	mePrimitive = EPrimitiveFromJson(propertiesJson.at("mePrimitiveType"));
 }
 
-void UPrimitiveComponent::Update(TArray<FRenderInfo>* outRenderInfos)
+void UPrimitiveComponent::Render(FRenderCollector& RenderCollector)
 {
-	// Todo: Update coordinates here
-	{
-		//UE_LOG("Primitive selected");
-	}
-	
-	GetRenderInfos(outRenderInfos);
+	RenderCollector.RenderInfos.Add({ mMeshAsset, mTextureAsset, mePrimitive, GetTransformMatrix().MakeMatrix(),{ mOwner->UUID, mOwner->InternalIndex }, FVector4(0, 0, 0, 0) });
 }
 
 void UPrimitiveComponent::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const
 {
 	assert(outRenderInfos);
 
-	outRenderInfos->Add({ mMeshAssetName, mePrimitive, GetTransformMatrix().MakeMatrix(),{mOwner->UUID, mOwner->InternalIndex}, FVector4(0, 0, 0, 0)});
+	outRenderInfos->Add({ mMeshAsset, mTextureAsset, mePrimitive, GetTransformMatrix().MakeMatrix(),{mOwner->UUID, mOwner->InternalIndex}, FVector4(0, 0, 0, 0)});
 }
 
 /*

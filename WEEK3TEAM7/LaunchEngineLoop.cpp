@@ -11,6 +11,7 @@
 #include "Sphere.h"
 #include "Circle.h"
 #include "Triangle.h"
+#include "Plane.h"
 #include "Object.h"
 #include "GizmoArrow.h"
 #include "ImGui/imgui.h"
@@ -18,6 +19,7 @@
 #include "imGui/imgui_impl_win32.h"
 #include "Actor.h"
 #include "World.h"
+#include <FLogManager.h>
 #include "Assets.h"
 
 void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
@@ -81,6 +83,7 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 
 	mSceneManager = new FSceneManager();
 	mFileManager = new FFileManager();
+	mFontManager = new FFontManager();
 	InitAssetManager();
 
 	mSceneManager->NewScene();
@@ -101,25 +104,39 @@ void FEngineLoop::InitAssetManager()
 	URenderer* renderer = mGraphicsManager->GetRenderer();
 	
 	// Register built-in asset types
-	Microsoft::WRL::ComPtr<ID3D11Buffer> cubeVertexBuffer = renderer->CreateVertexBuffer(Cube_vertices, sizeof(Cube_vertices));
-	TSharedPtr<FStaticMeshAsset> cubeAsset = MakeShared<FStaticMeshAsset>(FName("CubeMesh"), cubeVertexBuffer, sizeof(Cube_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> cubeAsset = MakeShared<FStaticMeshAsset>(FName("CubeMesh"), *renderer, Cube_vertices, sizeof(Cube_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(cubeAsset);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> sphereVertexBuffer = renderer->CreateVertexBuffer(Sphere_vertices, sizeof(Sphere_vertices));
-	TSharedPtr<FStaticMeshAsset> sphereAsset = MakeShared<FStaticMeshAsset>(FName("SphereMesh"), sphereVertexBuffer, sizeof(Sphere_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> sphereAsset = MakeShared<FStaticMeshAsset>(FName("SphereMesh"), *renderer, Sphere_vertices, sizeof(Sphere_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(sphereAsset);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> circleVertexBuffer = renderer->CreateVertexBuffer(Circle_vertices, sizeof(Circle_vertices));
-	TSharedPtr<FStaticMeshAsset> circleAsset = MakeShared<FStaticMeshAsset>(FName("CircleMesh"), circleVertexBuffer, sizeof(Circle_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> circleAsset = MakeShared<FStaticMeshAsset>(FName("CircleMesh"), *renderer, Circle_vertices, sizeof(Circle_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(circleAsset);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> triangleVertexBuffer = renderer->CreateVertexBuffer(Triangle_vertices, sizeof(Triangle_vertices));
-	TSharedPtr<FStaticMeshAsset> triangleAsset = MakeShared<FStaticMeshAsset>(FName("TriangleMesh"), triangleVertexBuffer, sizeof(Triangle_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> triangleAsset = MakeShared<FStaticMeshAsset>(FName("TriangleMesh"), *renderer, Triangle_vertices, sizeof(Triangle_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(triangleAsset);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> gizmoArrowVertexBuffer = renderer->CreateVertexBuffer(GizmoArrow_vertices, sizeof(GizmoArrow_vertices));
-	TSharedPtr<FStaticMeshAsset> gizmoArrowAsset = MakeShared<FStaticMeshAsset>(FName("GizmoArrowMesh"), gizmoArrowVertexBuffer, sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> gizmoArrowAsset = MakeShared<FStaticMeshAsset>(FName("GizmoArrowMesh"), *renderer, GizmoArrow_vertices, sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(gizmoArrowAsset);
+
+	TSharedPtr<FStaticMeshAsset> PlaneAsset = MakeShared<FStaticMeshAsset>(FName("PlaneMesh"), *renderer, Plane_vertices, sizeof(Plane_vertices) / sizeof(FVertexSimple));
+	mAssetManager->RegisterAsset(PlaneAsset);
+
+	TSharedPtr<FTexture2DAssetLoader> TextureLoader = MakeShared<FTexture2DAssetLoader>(*renderer);
+	TSharedPtr<FFontAssetLoader> FontLoader = MakeShared<FFontAssetLoader>(*mFontManager);
+
+	TSharedPtr<FFileAssetSource> FileAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Textures/Test.jpg");
+	mAssetManager->RegisterAsset(FName("TestTexture"), TextureLoader, FileAssetSource);
+
+	TSharedPtr<FFileAssetSource> SpotLightIconAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Textures/Icon_SpotLight.png");
+	mAssetManager->RegisterAsset(FName("SpotLightIcon"), TextureLoader, SpotLightIconAssetSource);
+
+	TSharedPtr<FFileAssetSource> FontAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Fonts/BMKkubulimTTF.ttf");
+	mAssetManager->RegisterAsset(FName("TestFont"), FontLoader, FontAssetSource);
+	
+	TSharedPtr<FFontAsset> TestFontAsset = mAssetManager->GetAssetAs<FFontAsset>(FName("TestFont"), true);
+	TSharedPtr<FFontAtlasAsset> FontAtlasAsset = MakeShared<FFontAtlasAsset>(FName("TestFontAtlas"), *renderer, TestFontAsset, 512, 512, 2, 2);
+	mAssetManager->RegisterAsset(FontAtlasAsset);
 }
 
 void FEngineLoop::Tick(bool bPumpMessages)
@@ -131,12 +148,15 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	float deltaTime = FrameTimer->GetDeltaTime();
 	ConsoleWindow& console = ConsoleWindow::Get();
 
+	FRenderCollector& RenderCollector = mGraphicsManager->GetRenderCollector();
+	RenderCollector.Camera = &ViewportClient->GetCamera();
+
 	//Input Threads
 	{
 		WindowApplication.ProcessDeferredEvents();
 
 		mGraphicsManager->UpdateProjectionTransition(deltaTime);
-		ViewportClient->Update(deltaTime, mSceneManager, mGraphicsManager->GetPerspectiveRatio());
+		ViewportClient->Update(deltaTime, mSceneManager, mGraphicsManager->GetPerspectiveRatio(), RenderCollector);
 	}
 
 	//Physics Threads
@@ -148,7 +168,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 	{
 		// 레이캐스트보다 먼저 돌려야 한다.
 		// 여기서 RenderInfos 가 갱신되고, RayCast 가 그걸 읽는다.
-		mSceneManager->Update(deltaTime);
+		mSceneManager->Update(deltaTime, RenderCollector);
 	}
 
 	//Render Threads
@@ -162,12 +182,11 @@ void FEngineLoop::Tick(bool bPumpMessages)
 		mGraphicsManager->Update(deltaTime);
 		mGraphicsManager->Prepare(&ViewportClient->mCamera, mSceneManager->GetViewportWidth(), mSceneManager->GetViewportHeight());
 
-		//월드 축. 액터 뒤에 그려서 같은 깊이 버퍼로 가려지게 한다 (기즈모와 달리 깊이를 지우지 않는다)
 		mGraphicsManager->DrawWorldAxis();
 		mGraphicsManager->FlushLines();
 
-		mGraphicsManager->Render(mAssetManager, mSceneManager->GetRenderInfos());
-
+		mGraphicsManager->Render();
+		
 		//강조
 		if (mSceneManager->GetSelectedActor())
 		{
@@ -181,7 +200,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 		//ImGui
 		{
 			//ImGui Input
-			mSceneManager->UpdateGUI({ *FrameTimer, mGraphicsManager, ViewportClient, mFileManager });
+			mSceneManager->UpdateGUI({ *FrameTimer, mGraphicsManager, ViewportClient, mFileManager, mAssetManager });
 
 			mGraphicsManager->GetRenderer()->BindFrameBuffer();
 
@@ -199,16 +218,24 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 void FEngineLoop::End()
 {
+	const std::string Value = std::format("{:.6f}", ViewportClient->GetCamera().Sensitivity);
+
+	if (!WritePrivateProfileStringA("Camera", "Sensitivity", Value.c_str(), ".\\editor.ini"))
+	{
+		UE_LOG_ERROR("Failed to save camera sensitivity to editor.ini");
+	}
 	mSceneManager->DeleteScene();
 
 	ImGui_ImplDX11_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
+	delete ViewportClient;
 	delete FrameTimer;
 	delete mSceneManager;
 	delete mFileManager;
 	delete mAssetManager;
+	delete mFontManager;
 
 	delete mGraphicsManager;
 }

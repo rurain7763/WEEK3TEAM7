@@ -6,6 +6,9 @@
 enum class EAssetType
 {
 	StaticMesh,
+	Texture2D,
+	Font,
+	FontAtlas
 };
 
 class FAsset
@@ -39,7 +42,7 @@ class FAssetLoader
 public:
 	virtual ~FAssetLoader() = default;
 
-	virtual TSharedPtr<FAsset> LoadAsset(const FName& AssetName, const FAssetSource& AssetSource) = 0;
+	virtual TSharedPtr<FAsset> LoadAsset(const FName& AssetName, FAssetSource& AssetSource) = 0;
 	virtual void UnloadAsset(TSharedPtr<FAsset> Asset) = 0;
 	virtual EAssetType GetAssetType() const = 0;
 };

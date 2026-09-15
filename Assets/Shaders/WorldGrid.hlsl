@@ -1,6 +1,8 @@
 cbuffer Constants : register(b0) // FConstants
 {
 	row_major matrix view_projection;
+    float3 camera_location;
+    float padding;
 }
 
 struct PS_INPUT
@@ -24,7 +26,7 @@ PS_INPUT mainVS(uint vertex_id : SV_VertexID)
 		float3(-1, -1, 0)
 	};
 		
-	float3 world_position = positions[vertex_id] * 50.0;
+    float3 world_position = positions[vertex_id] * 50.0 + float3(camera_location.x, camera_location.y, 0);
 	
 	output.world_position = world_position;
 	output.position = mul(float4(world_position, 1.f), view_projection);

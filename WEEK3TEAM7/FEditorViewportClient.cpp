@@ -5,6 +5,7 @@
 #include "Triangle.h"
 #include "GizmoArrow.h"
 #include "Circle.h"
+#include "Plane.h"
 #include "WindowApplication.h"
 #include "ImGui/imgui.h"
 #include "Console.h"
@@ -12,6 +13,9 @@
 #include "MathUtility.h"
 #include "GraphicsManager.h"
 #include "Renderer.h"
+#include <cstdio>
+#include "UTextComponent.h"
+#include "EngineMathLibrary.h"
 
 // 정점 배열이 보이는 스코프라 sizeof 로 개수가 나온다.
 // 포인터로 받으면 배열 크기 정보가 사라지므로 여기서 개수를 같이 넘긴다.
@@ -39,6 +43,10 @@ static bool GetPrimitiveMesh(EPrimitive ePrimitive, const FVertexSimple*& OutVer
 		OutVertices = Circle_vertices;
 		OutCount = static_cast<uint32>(sizeof(Circle_vertices) / sizeof(FVertexSimple));
 		return true;
+	case EPrimitive::EP_Plane:
+		OutVertices = Plane_vertices;
+		OutCount = static_cast<uint32>(sizeof(Plane_vertices) / sizeof(FVertexSimple));
+		return true;
 	}
 
 	return false;
@@ -48,9 +56,16 @@ FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	: mCamera(FTransform({ -2.0f, 1.0f, 1.0f }, { 0, 30, 0 }, { 1, 1, 1 }))
 	, mGizmo(InRenderer)
 {
+	char Value[64] = {};
+	GetPrivateProfileStringA("Camera", "Sensitivity", "", Value, sizeof(Value), ".\\editor.ini");
+	float Sensitivity = 0.1f;
+	if (sscanf_s(Value, "%f", &Sensitivity) == 1 && Sensitivity >= 0.01f && Sensitivity <= 1.0f)
+	{
+		mCamera.SetSensitivity(Sensitivity);
+	}
 }
 
-void FEditorViewportClient::RayCast(FSceneManager* SceneManager, float perspectiveRatio)
+AActor* FEditorViewportClient::PerformMousePicking(FSceneManager* SceneManager, float perspectiveRatio, const TArray<FRenderInfo>& RenderInfos)
 {
 	bMouseHit = false;
 
@@ -76,7 +91,7 @@ void FEditorViewportClient::RayCast(FSceneManager* SceneManager, float perspecti
 	mRayFar = FarPoint;
 
 	float NearlistT = FLT_MAX;
-
+	AActor* NearestActor = nullptr;
 #if 0
 	// 드래그 중에는 히트 판정을 하지 않는다.
 	// 빠르게 끌면 커서가 축 캡슐을 벗어나는데, 그때 eAxis가 NONE이 되면 드래그가 끊긴다.
@@ -98,21 +113,45 @@ void FEditorViewportClient::RayCast(FSceneManager* SceneManager, float perspecti
 	}
 #endif
 
-	// Object 탐색
-	const TArray<FRenderInfo> RenderInfos = World->GetRenderInfos();
-	for (const FRenderInfo& RI : RenderInfos)
+	FVector RayDirection = FarPoint - NearPoint;
+	float RayLength = RayDirection.Length();
+	RayDirection /= RayLength;
+
+	FRay Ray(NearPoint, RayDirection);
+	for (AActor* Actor : World->GetActors())
 	{
-		const FVertexSimple* vertices = nullptr;
-		uint32 length = 0;
-		if (!GetPrimitiveMesh(RI.ePrimitive, vertices, length))
+		USceneComponent* RootComponent = Actor->GetRootComponent();
+		UPrimitiveComponent* PrimitiveComponent = RootComponent->Cast<UPrimitiveComponent>();
+		if (!PrimitiveComponent)
 		{
-			continue;   // 모르는 프리미티브는 건너뛴다
+			continue;
 		}
 
-		const FMatrix WorldToLocal = RI.WorldTransformMatrix.Inverse();
+		FTransform Transform = Actor->GetTransform();
+		const FMatrix WorldMatrix = Transform.MakeMatrix();
+		const TSharedPtr<FStaticMeshAsset>& MeshAsset = PrimitiveComponent->GetMesh();
 
-		//역행렬이 존재하지 않으면(스케일이 작아 det이 0에 가까운 경우) Racast 대상에서 제외
-		if (WorldToLocal == FMatrix::Zero) continue;
+		// AABB 충돌체를 이용한 광선-메시 충돌 최적화
+		FAABB BoundingBox = MeshAsset->GetLocalBoundingBox().ToWorld(WorldMatrix);
+		if (!RayIntersectsAABB(Ray, RayLength, BoundingBox))
+		{
+			continue;
+		}
+
+		// 메시 충돌체를 이용한 광선-삼각형 충돌 판정
+		const FVertexSimple* vertices = nullptr;
+		uint32 length = 0;
+		if (!GetPrimitiveMesh(PrimitiveComponent->GetPrimitiveType(), vertices, length))
+		{
+			continue;
+		}
+
+		const FMatrix WorldToLocal = WorldMatrix.Inverse();
+		if (WorldToLocal == FMatrix::Zero)
+		{
+			//역행렬이 존재하지 않으면(스케일이 작아 det이 0에 가까운 경우) Racast 대상에서 제외
+			continue;
+		}
 
 		const FVector LocalNear = WorldToLocal.TransformPosition(NearPoint);
 		const FVector LocalFar = WorldToLocal.TransformPosition(FarPoint);
@@ -125,19 +164,20 @@ void FEditorViewportClient::RayCast(FSceneManager* SceneManager, float perspecti
 			const FVector V2 = vertices[i + 2].GetPosition();
 
 			float OutT, OutU, OutV;
-			if (RayIntersectsTriangle(LocalNear, LocalFar, V0, V1, V2, OutT, OutU, OutV)
-				&& OutT < NearlistT)
+			if (RayIntersectsTriangle(LocalNear, LocalFar, V0, V1, V2, OutT, OutU, OutV) && OutT < NearlistT)
 			{
 				// 같은 메시 안에서도 더 가까운 삼각형이 뒤에 나올 수 있으므로 break 하지 않는다
 				NearlistT = OutT;
 				bMouseHit = true;
-				mHoveredRenderInfo = RI;
+				NearestActor = Actor;  // 가장 가까운 액터를 반환
 			}
 		}
 	}
+
+	return NearestActor;
 }
 
-void FEditorViewportClient::Update(float deltaTime, FSceneManager* sceneManager, float perspectiveRatio)
+void FEditorViewportClient::Update(float deltaTime, FSceneManager* sceneManager, float perspectiveRatio, FRenderCollector& RenderCollector)
 {
 	const FInputState& Input = WindowApplication.Input;
 	bool bAllowMouse = sceneManager->IsViewportHovered();
@@ -225,31 +265,12 @@ void FEditorViewportClient::Update(float deltaTime, FSceneManager* sceneManager,
 		}
 	}
 
-	RayCast(sceneManager, perspectiveRatio);
-
-	//RayCast
-
-	////Editor Click 처리
-	//if (mClickedActor)
-	//{
-	//	mClickedActor->BeginFrame();
-	//}
-
+	AActor* HitActor = PerformMousePicking(sceneManager, perspectiveRatio, RenderCollector.RenderInfos);
     if (bAllowMouse && Input.WasPressed(VK_LBUTTON) && !mGizmo.IsDragging() && !mGizmo.IsMouseOverHandle())
     {
-        AActor* Hit = nullptr;
-        if (IsMouseHit())
-        {
-            UObject* Object = UObject::GetObjectByInternalIndex(mHoveredRenderInfo.ObejctID.InternalIndex);
-			if (Object && Object->IsA(AActor::GetClass()))
-			{
-				Hit = static_cast<AActor*>(Object);
-			}
-        }
-
-		if (Hit)
+		if (HitActor)
 		{
-			sceneManager->SetSelectedActor(Hit);
+			sceneManager->SetSelectedActor(HitActor);
 		}
 		else
 		{
@@ -257,41 +278,36 @@ void FEditorViewportClient::Update(float deltaTime, FSceneManager* sceneManager,
 		}
     }
 
+	AActor* SelectedActor = sceneManager->GetSelectedActor();
+	if (SelectedActor)
+	{
+		FTransform Transform = SelectedActor->GetTransform();
+		USceneComponent* RootComponent = SelectedActor->GetRootComponent();
+
+		UPrimitiveComponent* PrimitiveComponent = RootComponent->Cast<UPrimitiveComponent>();
+		if (PrimitiveComponent)
+		{
+			// 선택된 액터의 AABB를 화면에 표시
+			FMatrix WorldMatrix = Transform.MakeMatrix();
+			const FAABB& AABB = PrimitiveComponent->GetMesh()->GetLocalBoundingBox().ToWorld(WorldMatrix);
+
+			AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End)
+			{
+				FVector4 WorldStart = FVector4(Start, 1.f);
+				FVector4 WorldEnd = FVector4(End, 1.f);
+
+				FRenderLineInfo LineInfo;
+				LineInfo.Start = WorldStart.ToVec3();
+				LineInfo.End = WorldEnd.ToVec3();
+				LineInfo.Color = FVector4(1.f, 0.f, 0.f, 1.f); // 빨간색
+				LineInfo.Thickness = 0.01f;
+
+				RenderCollector.LineInfos.Add(LineInfo);
+			});
+		}
+	}
+
 	mGizmo.Update(sceneManager);
-}
-
-bool FEditorViewportClient::RayIntersectsTriangle(const FVector& Origin, const FVector& Dir, const FVector& V0, const FVector& V1, const FVector& V2, float& OutT, float& OutU, float& OutV)
-{
-	static const float EPSILON = 1e-6f;
-
-	//삼각형판정 => O +tD = V0+ uE1+vE2
-	// -tD + uE1 + vE2 = O - V0
-	//E2=v2-v0. E1=v1-v0
-
-	FVector D = Dir - Origin;
-	FVector T = Origin - V0;
-	FVector E2 = V2 - V0;
-	FVector E1 = V1 - V0;
-	FVector P = FVector::cross(D, E2);
-	float Det = FVector::dot(E1, P);
-
-	if (fabsf(Det) < EPSILON) return false;   // 평면과 평행
-
-	float InvDet = 1.0f / Det;
-
-	OutU = FVector::dot(T, P) * InvDet;
-	if (OutU < 0.0f || OutU > 1.0f) return false;
-
-	FVector Q = FVector::cross(T, E1);
-	OutV = FVector::dot(D, Q) * InvDet;
-	if (OutV < 0.0f || OutU + OutV > 1.0f) return false;
-
-	OutT = FVector::dot(E2, Q) * InvDet;
-
-	return (OutT > EPSILON);                  // 광선 앞쪽만
-
-	// OutT : 맞은물체가 얼마나 가까이있나(float)
-	// OutU, OutV 정확환 클릭지점을 확인하려면 필요
 }
 
 void FEditorViewportClient::DeprojectScreenToWorld(int32 MouseX, int32 MouseY, float ScreenW, float ScreenH, float NearZ, float FarZ, FVector& OutNearPoint, FVector& OutFarPoint)
@@ -378,8 +394,6 @@ void FEditorViewportClient::DeprojectScreenToWorldForUnified(
 
 void FEditorViewportClient::Reset()
 {
-	mHoveredRenderInfo = FRenderInfo();
 	bMouseHit = false;
-
 	mGizmo.Reset();
 }

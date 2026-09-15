@@ -30,8 +30,7 @@ public:
 
 	//void Render(FTransform worldTransformMatrix, EPrimitive ePrimitive); // FRenderInfo
 	//void Render(const TArray<FRenderInfo> renderInfos);
-	void Render(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos);
-	void RenderOverlay(FAssetManager* AssetManager, const TArray<FRenderInfo> renderInfos);
+	void Render();
 	//void RenderOverlay(const TArray<FRenderInfo> renderInfos); //깊이버퍼 초기화
 	// FRenderInfo
 
@@ -39,8 +38,8 @@ public:
 	void Update(float deltaTime);
 
 	float GetAspect() const { return mAspect; }
-	bool GetWireFrame() const { return mbWireFrame; } const
-	void SetWireFrame(bool bWireFrame) { mbWireFrame = bWireFrame; }
+	EViewModeIndex GetViewModeIndex() const { return mViewModeIndex; }
+	void SetViewModeIndex(EViewModeIndex viewModeIndex) { mViewModeIndex = viewModeIndex; }
 
 	bool IsPerspectiveProjection() const;
 	void SetPerspectiveProjection(bool bPerspectiveProjection);
@@ -76,6 +75,9 @@ public:
 	void UpdateProjectionTransition(float deltaTime);
 
 	inline const TSharedPtr<FRenderTarget2D>& GetSceneRenderTarget() const { return mSceneRenderTarget; }
+	inline FRenderCollector& GetRenderCollector() { return mRenderCollector; }
+	inline TArray<FRenderQuadInfo>& GetRenderQuadInfos() { return mRenderCollector.QuadInfos; }
+	inline TArray<FRenderInfo>& GetRenderInfos() { return mRenderCollector.RenderInfos; }
 
 private:
 	URenderer* mRenderer;
@@ -95,7 +97,7 @@ private:
 	// 이번 프레임에 쌓인 선분. 정점 2개가 선분 하나
 	TArray<FVertexSimple> mLineVertices;
 
-	bool mbWireFrame;
+	EViewModeIndex mViewModeIndex = EViewModeIndex::VMI_Lit;
 	bool mbPerspectiveProjection;
 	bool mbShowWorldAxis = true;
 	float mAspect;
@@ -110,4 +112,7 @@ private:
 
 	TSharedPtr<FRenderTarget2D> mSceneRenderTarget;
 	TSharedPtr<FDepthStencil> mSceneDepthStencil;
+	TSharedPtr<FRenderPipeline> mMeshPipeline;
+
+	FRenderCollector mRenderCollector;
 };

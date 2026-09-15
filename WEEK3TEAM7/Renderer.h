@@ -9,21 +9,22 @@
 #include "RenderInfo.h"
 #include "FRenderPipeline.h"
 
-// 1. Define the triangle vertices
-struct FVertexSimple
-{
-    float x, y, z;    // Position
-    float r, g, b, a; // Color
-
-	FVector GetPosition() const { return FVector(x, y, z); }
-};
-
 struct FConstants
 {
 	FMatrix Matrix;
 	FVector4 Color;
 	int32 UseVertexColor;
-	int32 Padding[3];
+	int32 HasTexture;
+	int32 Padding[2];
+};
+
+struct FLineConstants
+{
+	FVector4 Color;
+	FVector3 Start;
+	float Thickness;
+	FVector3 End;
+	float Padding;
 };
 
 struct FLine2DConstants
@@ -66,6 +67,136 @@ struct FWorldAxisConstants
 struct FWorldGridConstants
 {
 	FMatrix ViewProjection;
+	FVector CameraLocation;
+	float Padding;
+};
+
+struct FQuadConstants
+{
+	FMatrix Model;
+	FVector4 Color;
+	FVector4 SubUV;
+	int32 HasTexture;
+	int32 GrayscaleMode;
+	int32 Padding[2];
+};
+
+struct FSamplerStateKey
+{
+	D3D11_FILTER Filter;
+	D3D11_TEXTURE_ADDRESS_MODE AddressU;
+	D3D11_TEXTURE_ADDRESS_MODE AddressV;
+
+	bool operator==(const FSamplerStateKey& Other) const
+	{
+		return Filter == Other.Filter && AddressU == Other.AddressU && AddressV == Other.AddressV;
+	}
+};
+
+struct FSamplerStateKeyHash
+{
+	std::size_t operator()(const FSamplerStateKey& Key) const
+	{
+		return std::hash<int>()(static_cast<int>(Key.Filter)) ^ (std::hash<int>()(static_cast<int>(Key.AddressU)) << 1) ^ (std::hash<int>()(static_cast<int>(Key.AddressV)) << 2);
+	}
+};
+
+class FSamplerStatePool
+{
+public:
+	ID3D11SamplerState* GetOrCreateSamplerState(ID3D11Device* Device, const FSamplerStateKey& Key)
+	{
+		ID3D11SamplerState** existing = SamplerStates.Find(Key);
+		if (existing)
+		{
+			return *existing;
+		}
+
+		D3D11_SAMPLER_DESC SamplerDesc = {};
+		SamplerDesc.Filter = Key.Filter;
+		SamplerDesc.AddressU = Key.AddressU;
+		SamplerDesc.AddressV = Key.AddressV;
+		SamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+		SamplerDesc.MipLODBias = 0.0f;
+		SamplerDesc.MaxAnisotropy = 1;
+		SamplerDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+		SamplerDesc.BorderColor[0] = 0.0f;
+		SamplerDesc.BorderColor[1] = 0.0f;
+		SamplerDesc.BorderColor[2] = 0.0f;
+		SamplerDesc.BorderColor[3] = 0.0f;
+		SamplerDesc.MinLOD = 0.0f;
+		SamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+		ID3D11SamplerState* SamplerState = nullptr;
+		HRESULT Hr = Device->CreateSamplerState(&SamplerDesc, &SamplerState);
+		if (FAILED(Hr))
+		{
+			return nullptr;
+		}
+
+		SamplerStates.Add(Key, SamplerState);
+
+		return SamplerState;
+	}
+
+private:
+	friend class URenderer;
+
+	TMap<FSamplerStateKey, ID3D11SamplerState*, FSamplerStateKeyHash> SamplerStates;
+};
+
+struct FDepthStencilStateKey
+{
+	bool bEnableDepthTest;
+	bool bEnableDepthWrite;
+	
+	bool operator==(const FDepthStencilStateKey& Other) const
+	{
+		return bEnableDepthTest == Other.bEnableDepthTest && bEnableDepthWrite == Other.bEnableDepthWrite;
+	}
+};
+
+struct FDepthStencilStateKeyHash
+{
+	std::size_t operator()(const FDepthStencilStateKey& Key) const
+	{
+		return std::hash<bool>()(Key.bEnableDepthTest) ^ (std::hash<bool>()(Key.bEnableDepthWrite) << 1);
+	}
+};
+
+class FDepthStencilStatePool
+{
+public:
+	ID3D11DepthStencilState* GetOrCreateDepthStencilState(ID3D11Device* Device, const FDepthStencilStateKey& Key)
+	{
+		ID3D11DepthStencilState** existing = DepthStencilStates.Find(Key);
+		if (existing)
+		{
+			return *existing;
+		}
+
+		D3D11_DEPTH_STENCIL_DESC DepthStencilDesc = {};
+		DepthStencilDesc.DepthEnable = Key.bEnableDepthTest ? TRUE : FALSE;
+		DepthStencilDesc.DepthWriteMask = Key.bEnableDepthWrite ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
+		DepthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
+		DepthStencilDesc.StencilEnable = FALSE;
+
+		ID3D11DepthStencilState* DepthStencilState = nullptr;
+		HRESULT Hr = Device->CreateDepthStencilState(&DepthStencilDesc, &DepthStencilState);
+		if (FAILED(Hr))
+		{
+			return nullptr;
+		}
+
+		DepthStencilStates.Add(Key, DepthStencilState);
+
+		return DepthStencilState;
+	}
+
+private:
+	friend class URenderer;
+
+	TMap<FDepthStencilStateKey, ID3D11DepthStencilState*, FDepthStencilStateKeyHash> DepthStencilStates;
 };
 
 struct FRenderTarget2D
@@ -119,25 +250,32 @@ public:
 		return VertexBuffer;
 	}
 
-	Microsoft::WRL::ComPtr<ID3D11Texture2D> CreateTexture2D(const D3D11_TEXTURE2D_DESC& TextureDesc, const void* Data = nullptr);
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> CreateTexture2D(const D3D11_TEXTURE2D_DESC& Desc, const void* InitialData = nullptr);
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateShaderResourceView(Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture, const D3D11_SHADER_RESOURCE_VIEW_DESC* Desc = nullptr);
 
 	TSharedPtr<FRenderTarget2D> CreateRenderTarget2D(uint32 Width, uint32 Height, DXGI_FORMAT Format);
 	TSharedPtr<FDepthStencil> CreateDepthStencil(uint32 Width, uint32 Height);
 	
-	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const;
-
 	//Update
 	void RSUpdateState();
 
 	//Rendering
-	void Prepare(bool bWireFrame, const FMatrix& ViewProjectionMatrix);
+	void Prepare(const FMatrix& ViewProjectionMatrix);
 #if 0
 	void RenderLines(const FVertexSimple* vertices, uint32 numVertices);
 	void RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI);
 #endif
 
+	TSharedPtr<FRenderPipeline> CreateRenderPipeline();
+
+	void BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const;
+
 	void BindFrameBuffer();
 	void BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget, const TSharedPtr<FDepthStencil>& DepthStencil, bool bClear = true);
+
+	void RenderLine(const FRenderLineInfo& Info) const;
+
+	void RenderQuad(const FRenderQuadInfo& Info) const;
 
 	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const;
 	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const;
@@ -147,7 +285,7 @@ public:
 	void RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius = 1.0f) const;
 	void RenderTriangle2D(const FVector2& Center, const FVector4& Color, float Size = 1.0f, float Rotation = 0.0f) const;
 	void RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness = 1.0f) const;
-	void RenderWorldGrid(const FMatrix& ViewProjection) const;
+	void RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation) const;
 
 	void SwapBuffer();
 
@@ -161,6 +299,7 @@ public:
 	FORCEINLINE const D3D11_VIEWPORT& GetViewport() const { return ViewportInfo; }
 	FORCEINLINE ID3D11Device* GetDevice() const { return Device; }
 	FORCEINLINE ID3D11DeviceContext* GetDeviceContext() const { return DeviceContext; }
+	FORCEINLINE void SetViewModeIndex(EViewModeIndex InViewModeIndex) { ViewModeIndex = InViewModeIndex; }
 
 private:
 	void CreateDeviceAndSwapChain(HWND hWindow);
@@ -176,23 +315,32 @@ private:
     ID3D11DeviceContext* DeviceContext = nullptr;
     IDXGISwapChain* SwapChain = nullptr;
 
+	FSamplerStatePool SamplerStatePool;
+	FDepthStencilStatePool DepthStencilStatePool;
+
     ID3D11Texture2D* FrameBuffer = nullptr;
     ID3D11RenderTargetView* FrameBufferRTV = nullptr;
 
 	ID3D11Texture2D* DepthStencilBuffer = nullptr;			// 실제 깊이값이 저장될 메모리
 	ID3D11DepthStencilView* DepthStencilView = nullptr;		// 그 메모리를 "출력 대상"으로 보는 뷰
 
-	TSharedPtr<FRenderPipeline> DefaultPipeline;
+	TSharedPtr<FRenderPipeline> LinePipeline;
+	TSharedPtr<FRenderPipeline> PrimitivePipeline;
 	TSharedPtr<FRenderPipeline> Line2DPipeline;
 	TSharedPtr<FRenderPipeline> Circle2DPipeline;
 	TSharedPtr<FRenderPipeline> Triangle2DPipeline;
 	TSharedPtr<FRenderPipeline> WorldAxisPipeline;
 	TSharedPtr<FRenderPipeline> WorldGridPipeline;
+	TSharedPtr<FRenderPipeline> QuadPipeline;
 
 	UINT Width, Height;
     FLOAT ClearColor[4] = { 0.025f, 0.025f, 0.025f, 1.0f };
     D3D11_VIEWPORT ViewportInfo;
 	FMatrix Projection2D;
+
+	// 와이어프레임 여부. Prepare에서 갱신하고 BindPipeline이 읽는다.
+	// RSSetState는 드로우 직전마다 덮어써지므로 플래그로 들고 있어야 한다.
+	EViewModeIndex ViewModeIndex = EViewModeIndex::VMI_Lit;
 
 #if 1
 	ID3D11RasterizerState* RasterizerState[2] = {};

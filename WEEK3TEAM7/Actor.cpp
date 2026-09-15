@@ -107,6 +107,11 @@ void AActor::AddRootSceneComponent(USceneComponent* sceneComponent)
 	AddComponent(sceneComponent);
 }
 
+USceneComponent* AActor::GetRootComponent() const
+{
+	return mRootComponent;
+}
+
 bool AActor::RemoveComponent(uint32 componentUUID)
 {
 	int32 componentIndex = getComponentIndex(componentUUID);
@@ -133,12 +138,19 @@ FTransform AActor::GetTransform() const
 	}
 }
 
-
-void AActor::Update(TArray<FRenderInfo>* outRenderInfos)
+void AActor::Tick(float deltaTime)
 {
 	for (UActorComponent* component : mComponents)
 	{
-		component->Update(outRenderInfos);
+		component->Tick(deltaTime);
+	}
+}
+
+void AActor::Render(FRenderCollector& RenderCollector)
+{
+	for (UActorComponent* component : mComponents)
+	{
+		component->Render(RenderCollector);
 	}
 }
 

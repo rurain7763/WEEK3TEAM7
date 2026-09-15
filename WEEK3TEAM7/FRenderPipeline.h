@@ -2,23 +2,37 @@
 
 #include <d3d11.h>
 #include <d3dcompiler.h>
+#include <wrl/client.h>
 #include "Core.h"
 #include "TArray.h"
+#include "enum.h"
+#include <initializer_list>
 
 class URenderer;
+class FSamplerStatePool;
+class FDepthStencilStatePool;
 
 class FRenderPipeline
 {
 public:
-	FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext);
+	FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool, FDepthStencilStatePool* InDepthStencilStatePool);
 	~FRenderPipeline();
 
 	void Release();
 
-	void SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias = 0);
+	// ViewModes에 나열한 뷰 모드마다 래스터라이저 상태를 하나씩 만든다.
+	void SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias = 0, std::initializer_list<EViewModeIndex> ViewModes = { EViewModeIndex::VMI_Lit });
+	ID3D11RasterizerState* GetRasterizerState(EViewModeIndex ViewMode) const;
 	void SetDepthStencilState(bool bEnableDepthTest, bool bEnableDepthWrite);
 	void SetBlendState(const D3D11_BLEND_DESC& BlendDesc);
+	void SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY Topology);
 	void SetShader(const FString& ShaderPath);
+	
+	void SetShaderResource(uint32 Slot, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV);
+	void ClearShaderResource();
+
+	void SetSamplerState(uint32 Slot, D3D11_FILTER Filter, D3D11_TEXTURE_ADDRESS_MODE AddressU, D3D11_TEXTURE_ADDRESS_MODE AddressV);
+	void ClearSamplerState();
 
 	template <typename T>
 	void AddConstantBuffer()
@@ -61,8 +75,11 @@ private:
 
 	ID3D11Device* Device = nullptr;
 	ID3D11DeviceContext* DeviceContext = nullptr;
-
-	ID3D11RasterizerState* RasterizerState = nullptr;
+	D3D11_PRIMITIVE_TOPOLOGY PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	FSamplerStatePool* SamplerStatePool = nullptr;
+	FDepthStencilStatePool* DepthStencilStatePool = nullptr;
+	static constexpr int32 ViewModeCount = static_cast<int32>(EViewModeIndex::VMI_Max);
+	ID3D11RasterizerState* RasterizerStates[ViewModeCount] = {};
 	ID3D11DepthStencilState* DepthStencilState = nullptr;
 	ID3D11InputLayout* InputLayout = nullptr;
 	ID3D11BlendState* BlendState = nullptr;
@@ -70,4 +87,6 @@ private:
 	ID3D11VertexShader* VertexShader = nullptr;
 	ID3D11PixelShader* PixelShader = nullptr;
 	TArray<ID3D11Buffer*> ConstantBuffers;
+	TArray<ID3D11ShaderResourceView*> ShaderResourceViews;
+	TArray<ID3D11SamplerState*> SamplerStates;
 };

@@ -9,6 +9,7 @@
 #include "Renderer.h"
 #include "World.h"
 #include "FAssetManager.h"
+#include "FFontManager.h"
 
 #include <d3d11.h>
 
@@ -26,6 +27,8 @@ public:
 	void Tick(bool bPumpMessages);
 	void End();
 
+	FAssetManager* GetAssetManager() { return mAssetManager; }
+
 private:
 	void InitAssetManager();
 
@@ -39,6 +42,7 @@ private:
 	FSceneManager* mSceneManager;
 	FFileManager* mFileManager;
 	FAssetManager* mAssetManager;
+	FFontManager* mFontManager;
 };
 
 inline FEngineLoop GEngineLoop;

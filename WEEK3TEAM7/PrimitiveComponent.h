@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "SceneComponent.h"
-#include "FAsset.h"
+#include "Assets.h"
 
 class UPrimitiveComponent : public USceneComponent
 {
@@ -13,6 +13,7 @@ public:
 	//void Initialize(GraphicsManager* graphicsManager, EPrimitive ePrimitive);
 	//void Initialize(GraphicsManager* graphicsManager, EPrimitive ePrimitive, FVector location, FRotator rotation, FVector scale3D);
 
+	using USceneComponent::Initialize;
 	void Initialize(EPrimitive ePrimitive);
 	void Initialize(EPrimitive ePrimitive, FVector location, FRotator rotation, FVector scale3D);
 
@@ -22,13 +23,22 @@ public:
 	virtual void DeserializeClass(const json::JSON& inJson) override;
 
 	//virtual void Render();
-	void Update(TArray<FRenderInfo>* outRenderInfos) override final;
+	virtual void Render(FRenderCollector& RenderCollector) override;
 	void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const override final;
+
+	inline const TSharedPtr<FStaticMeshAsset>& GetMesh() const { return mMeshAsset; }
+
+	inline void SetTexture(const TSharedPtr<FTexture2DAsset>& textureAsset) { mTextureAsset = textureAsset; }
+	inline const TSharedPtr<FTexture2DAsset>& GetTexture() const { return mTextureAsset; }
+
+	inline EPrimitive GetPrimitiveType() const { return mePrimitive; }
 
 protected:
 	//GraphicsManager* mGraphicsManager;
 	EPrimitive mePrimitive;
-	FName mMeshAssetName;
+	TSharedPtr<FStaticMeshAsset> mMeshAsset;
+	TSharedPtr<FTexture2DAsset> mTextureAsset;
 };
+
 
 

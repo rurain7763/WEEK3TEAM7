@@ -3,6 +3,11 @@
 #include <string>
 #include <string_view>
 #include <memory>
+#include <format>
+
+#if _WIN32
+#include <Windows.h>
+#endif
 
 typedef char int8;
 typedef unsigned char uint8;
@@ -27,6 +32,8 @@ TSharedPtr<T> MakeShared(Args&&... args)
 
 template <typename T, typename K>
 using TPair = std::pair<T, K>;
+
+constexpr float WorldUnitPerPixel = 1.0f / 100.0f; // 100 pixels = 1 world unit
 
 struct FString
 {
@@ -146,8 +153,6 @@ struct std::hash<FString>
 	}
 };
 
-#include <format>
-
 template<>
 struct std::formatter<FString, char> : std::formatter<std::string_view, char>
 {
@@ -165,3 +170,24 @@ struct std::formatter<FString, char> : std::formatter<std::string_view, char>
 		#define FORCEINLINE inline __attribute__((always_inline))
 	#endif
 #endif
+
+inline std::wstring Utf2Wide(const FString& str)
+{
+#if _WIN32
+	int32 Size = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str.CStr(), -1, nullptr, 0);
+	if (Size == 0)
+	{
+		throw  std::runtime_error("Failed to convert UTF-8 string to wide string.");
+	}
+
+	std::wstring Result(Size, L'\0');
+	if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, str.CStr(), -1, Result.data(), Size) == 0)
+	{
+		throw std::runtime_error("Failed to convert UTF-8 string to wide string.");
+	}
+#else
+	std::wstring Result(Size, L'\0');
+#endif
+
+	return Result;
+}

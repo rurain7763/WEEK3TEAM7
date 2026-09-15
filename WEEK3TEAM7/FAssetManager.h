@@ -3,6 +3,7 @@
 #include "Core.h"
 #include "FAsset.h"
 #include "TMap.h"
+#include "TArray.h"
 
 struct FAssetMetaInfo
 {
@@ -15,12 +16,12 @@ struct FAssetMetaInfo
 class FAssetManager
 {
 public:
+	static FAssetManager& Get();
 	void RegisterAsset(const FName& AssetName, const TSharedPtr<FAssetLoader>& AssetLoader, const TSharedPtr<FAssetSource>& AssetSource);
 	void RegisterAsset(const TSharedPtr<FAsset>& Asset);
 	void UnregisterAsset(const FName& AssetName);
 
 	TSharedPtr<FAsset> LoadAsset(const FName& AssetName);
-
 	TSharedPtr<FAsset> GetAsset(const FName& AssetName, bool loadIfNotLoaded = false);
 
 	template <typename T>
@@ -36,6 +37,15 @@ public:
 	}
 
 	void UnloadAsset(const FName& AssetName);
+
+	template <typename Func>
+	void ForEachMetaInfo(Func&& func)
+	{
+		for (auto& pair : AssetMetaInfoMap)
+		{
+			func(pair.second);
+		}
+	}
 
 private:
 	TMap<FName, FAssetMetaInfo, FNameHasher> AssetMetaInfoMap;
