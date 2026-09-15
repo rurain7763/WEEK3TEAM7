@@ -16,7 +16,7 @@ struct FEditorViewportClient
 public:
 	FEditorViewportClient(URenderer& InRenderer);
 
-	void RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio, const TArray<FRenderInfo>& RenderInfos);
+	void PerformMousePicking(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio, const TArray<FRenderInfo>& RenderInfos);
 	float GetFov() const { return mCamera.mFovDegree; }
 	void Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio, FRenderCollector& RenderCollector);
 	bool IsMouseHit() const { return bMouseHit; }
@@ -36,15 +36,6 @@ private:
 	//마우스 밑 무언가가 Actor이면 저장. RayCast 에서 채워야 함 (아직 미구현)
 	// INFO: mClickedActor moved to FSceneManager::mSelectedActor.
 	//AActor* mClickedActor = nullptr;
-
-
-	bool RayIntersectsTriangle( // 두개의 
-		const FVector& Origin,
-		const FVector& Dir,
-		const FVector& V0,
-		const FVector& V1,
-		const FVector& V2,
-		float& OutT, float& OutU, float& OutV);
 
 	void DeprojectScreenToWorld(int32 MouseX, int32 MouseY,
 		float ScreenW, float ScreenH, float NearZ, float FarZ,

@@ -9,16 +9,6 @@
 #include "RenderInfo.h"
 #include "FRenderPipeline.h"
 
-// 1. Define the triangle vertices
-struct FVertexSimple
-{
-    float x, y, z;    // Position
-    float r, g, b, a; // Color
-	float u, v;       // Texture coordinates
-
-	FVector GetPosition() const { return FVector(x, y, z); }
-};
-
 struct FConstants
 {
 	FMatrix Matrix;
@@ -26,6 +16,15 @@ struct FConstants
 	int32 UseVertexColor;
 	int32 HasTexture;
 	int32 Padding[2];
+};
+
+struct FLineConstants
+{
+	FVector4 Color;
+	FVector3 Start;
+	float Thickness;
+	FVector3 End;
+	float Padding;
 };
 
 struct FLine2DConstants
@@ -216,7 +215,8 @@ public:
 	ID3D11Texture2D* DepthStencilBuffer = nullptr;			// 실제 깊이값이 저장될 메모리
 	ID3D11DepthStencilView* DepthStencilView = nullptr;		// 그 메모리를 "출력 대상"으로 보는 뷰
 
-	TSharedPtr<FRenderPipeline> DefaultPipeline;
+	TSharedPtr<FRenderPipeline> LinePipeline;
+	TSharedPtr<FRenderPipeline> PrimitivePipeline;
 	TSharedPtr<FRenderPipeline> Line2DPipeline;
 	TSharedPtr<FRenderPipeline> Circle2DPipeline;
 	TSharedPtr<FRenderPipeline> Triangle2DPipeline;
@@ -301,6 +301,8 @@ public:
 	void RenderLines(const FVertexSimple* vertices, uint32 numVertices);
 	void RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI);
 #endif
+	
+	void RenderLine(const FRenderLineInfo& Info) const;
 
 	void RenderQuad(const FRenderQuadInfo& Info) const;
 

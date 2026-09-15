@@ -42,13 +42,20 @@ void URenderer::Create(HWND hWindow)
 	AlphaBlendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 	AlphaBlendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
-	DefaultPipeline = CreateRenderPipeline();
-	DefaultPipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, {EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe});
-	DefaultPipeline->SetDepthStencilState(true, true);
-	DefaultPipeline->SetShader("Assets/Shaders/Mesh.hlsl");
-	DefaultPipeline->AddConstantBuffer<FConstants>();
-	DefaultPipeline->AddConstantBuffer<FMatrix>();
-	DefaultPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
+	LinePipeline = CreateRenderPipeline();
+	LinePipeline->SetRasterRizerState(D3D11_CULL_NONE);
+	LinePipeline->SetDepthStencilState(true, true);
+	LinePipeline->SetShader("Assets/Shaders/Line.hlsl");
+	LinePipeline->AddConstantBuffer<FLineConstants>();
+	LinePipeline->AddConstantBuffer<FMatrix>();
+
+	PrimitivePipeline = CreateRenderPipeline();
+	PrimitivePipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, {EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe});
+	PrimitivePipeline->SetDepthStencilState(true, true);
+	PrimitivePipeline->SetShader("Assets/Shaders/Mesh.hlsl");
+	PrimitivePipeline->AddConstantBuffer<FConstants>();
+	PrimitivePipeline->AddConstantBuffer<FMatrix>();
+	PrimitivePipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 
 	Line2DPipeline = CreateRenderPipeline();
 	Line2DPipeline->SetRasterRizerState(D3D11_CULL_NONE);
@@ -215,7 +222,7 @@ void URenderer::Release()
 	Triangle2DPipeline.reset();
 	Circle2DPipeline.reset();
 	Line2DPipeline.reset();
-	DefaultPipeline.reset();
+	PrimitivePipeline.reset();
 
 	for (auto& Pair : SamplerStatePool.SamplerStates)
 	{
@@ -253,7 +260,8 @@ void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
 	DeviceContext->OMSetRenderTargets(1, &FrameBufferRTV, DepthStencilView);
 	DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
 
-	DefaultPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
+	LinePipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
+	PrimitivePipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
 	QuadPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
 }
 
@@ -296,6 +304,7 @@ void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const
 	DeviceContext->RSSetState(Pipeline->GetRasterizerState(ViewModeIndex));
 	DeviceContext->OMSetDepthStencilState(Pipeline->DepthStencilState, 0);
 	DeviceContext->OMSetBlendState(Pipeline->BlendState, nullptr, 0xffffffff);
+	DeviceContext->IASetPrimitiveTopology(Pipeline->PrimitiveTopology);
 	DeviceContext->IASetInputLayout(Pipeline->InputLayout);
 	DeviceContext->VSSetShader(Pipeline->VertexShader, nullptr, 0);
 	DeviceContext->PSSetShader(Pipeline->PixelShader, nullptr, 0);
@@ -388,6 +397,23 @@ void URenderer::RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mView
 }
 #endif
 
+void URenderer::RenderLine(const FRenderLineInfo& Info) const
+{
+	FLineConstants LineConstants;
+	LineConstants.Color = Info.Color;
+	LineConstants.Start = Info.Start;
+	LineConstants.End = Info.End;
+	LineConstants.Thickness = Info.Thickness;
+
+	LinePipeline->UpdateConstantBuffer(0, LineConstants);
+
+	BindPipeline(LinePipeline);
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);
+	DeviceContext->Draw(6, 0);
+}
+
 void URenderer::RenderQuad(const FRenderQuadInfo& Info) const
 {
 	QuadPipeline->ClearShaderResource();
@@ -422,16 +448,16 @@ void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Mic
 
 void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const
 {
-	DefaultPipeline->UpdateConstantBuffer(0, FConstants{ Model, FVector4(1.0f, 1.0f, 1.0f, 1.0f), 1 });
+	PrimitivePipeline->UpdateConstantBuffer(0, FConstants{ Model, FVector4(1.0f, 1.0f, 1.0f, 1.0f), 1 });
 
-	RenderPrimitive(DefaultPipeline, Buffer, NumVertices);
+	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
 }
 
 void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const
 {
-	DefaultPipeline->UpdateConstantBuffer(0, FConstants{ Model, Color, 0 });
+	PrimitivePipeline->UpdateConstantBuffer(0, FConstants{ Model, Color, 0 });
 
-	RenderPrimitive(DefaultPipeline, Buffer, NumVertices);
+	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
 }
 
 void URenderer::RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness) const

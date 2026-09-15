@@ -26,13 +26,15 @@ public:
 	void Update(TArray<FRenderInfo>* outRenderInfos) override final;
 	void GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const override final;
 
+	inline const TSharedPtr<FStaticMeshAsset>& GetMesh() const { return mMeshAsset; }
+
 	inline void SetTexture(const TSharedPtr<FTexture2DAsset>& textureAsset) { mTextureAsset = textureAsset; }
 	inline const TSharedPtr<FTexture2DAsset>& GetTexture() const { return mTextureAsset; }
 
 protected:
 	//GraphicsManager* mGraphicsManager;
 	EPrimitive mePrimitive;
-	FName mMeshAssetName;
+	TSharedPtr<FStaticMeshAsset> mMeshAsset;
 	TSharedPtr<FTexture2DAsset> mTextureAsset;
 };
 

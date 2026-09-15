@@ -14,6 +14,7 @@
 #include "Renderer.h"
 #include <cstdio>
 #include "UTextComponent.h"
+#include "EngineMathLibrary.h"
 
 // 정점 배열이 보이는 스코프라 sizeof 로 개수가 나온다.
 // 포인터로 받으면 배열 크기 정보가 사라지므로 여기서 개수를 같이 넘긴다.
@@ -59,7 +60,7 @@ FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	}
 }
 
-void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio, const TArray<FRenderInfo>& RenderInfos)
+void FEditorViewportClient::PerformMousePicking(D3D11_VIEWPORT ViewportInfo, UWorld* World, float perspectiveRatio, const TArray<FRenderInfo>& RenderInfos)
 {
 	bMouseHit = false;
 
@@ -104,8 +105,8 @@ void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, 
 	}
 #endif
 
+#if 0
 	// Object 탐색
-
 	for (const FRenderInfo& RI : RenderInfos)
 	{
 		const FVertexSimple* vertices = nullptr;
@@ -141,6 +142,29 @@ void FEditorViewportClient::RayCast(D3D11_VIEWPORT ViewportInfo, UWorld* World, 
 			}
 		}
 	}
+#else
+	FRay Ray;
+	Ray.Origin = NearPoint;
+	Ray.Direction = FarPoint - NearPoint;
+	Ray.Direction.Normalize();
+
+	for (const AActor* Actor : World->GetActors())
+	{
+		USceneComponent* RootComponent = Actor->GetRootComponent();
+		UPrimitiveComponent* PrimitiveComponent = RootComponent->Cast<UPrimitiveComponent>();
+		if (!PrimitiveComponent)
+		{
+			continue;
+		}
+
+		FTransform Transform = Actor->GetTransform();
+		const FMatrix WorldMatrix = Transform.MakeMatrix();
+		const TSharedPtr<FStaticMeshAsset>& MeshAsset = PrimitiveComponent->GetMesh();
+
+		FAABB BoundingBox = MeshAsset->GetLocalBoundingBox().ToWorld(WorldMatrix);
+
+	}
+#endif
 }
 
 void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo, FSceneManager* sceneManager, float perspectiveRatio, FRenderCollector& RenderCollector)
@@ -231,7 +255,7 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 	}
 
 
-	RayCast(ViewportInfo, sceneManager->GetCurrentWorld(), perspectiveRatio, RenderCollector.RenderInfos);
+	PerformMousePicking(ViewportInfo, sceneManager->GetCurrentWorld(), perspectiveRatio, RenderCollector.RenderInfos);
 
 	//RayCast
 
@@ -289,6 +313,29 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 	if (SelectedActor)
 	{
 		FTransform Transform = SelectedActor->GetTransform();
+		USceneComponent* RootComponent = SelectedActor->GetRootComponent();
+
+		UPrimitiveComponent* PrimitiveComponent = RootComponent->Cast<UPrimitiveComponent>();
+		if (PrimitiveComponent)
+		{
+			// 선택된 액터의 AABB를 화면에 표시
+			FMatrix WorldMatrix = Transform.MakeMatrix();
+			const FAABB& AABB = PrimitiveComponent->GetMesh()->GetLocalBoundingBox().ToWorld(WorldMatrix);
+
+			AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End)
+			{
+				FVector4 WorldStart = FVector4(Start, 1.f);
+				FVector4 WorldEnd = FVector4(End, 1.f);
+
+				FRenderLineInfo LineInfo;
+				LineInfo.Start = WorldStart.ToVec3();
+				LineInfo.End = WorldEnd.ToVec3();
+				LineInfo.Color = FVector4(1.f, 0.f, 0.f, 1.f); // 빨간색
+				LineInfo.Thickness = 0.01f;
+
+				RenderCollector.LineInfos.Add(LineInfo);
+			});
+		}
 
 		// 선택된 액터의 UUID를 화면에 표시
 		UText3DComponent textComponent;
@@ -301,40 +348,6 @@ void FEditorViewportClient::Update(float deltaTime, D3D11_VIEWPORT ViewportInfo,
 	}
 
 	mGizmo.Update(SelectedActor);
-}
-
-bool FEditorViewportClient::RayIntersectsTriangle(const FVector& Origin, const FVector& Dir, const FVector& V0, const FVector& V1, const FVector& V2, float& OutT, float& OutU, float& OutV)
-{
-	static const float EPSILON = 1e-6f;
-
-	//삼각형판정 => O +tD = V0+ uE1+vE2
-	// -tD + uE1 + vE2 = O - V0
-	//E2=v2-v0. E1=v1-v0
-
-	FVector D = Dir - Origin;
-	FVector T = Origin - V0;
-	FVector E2 = V2 - V0;
-	FVector E1 = V1 - V0;
-	FVector P = FVector::cross(D, E2);
-	float Det = FVector::dot(E1, P);
-
-	if (fabsf(Det) < EPSILON) return false;   // 평면과 평행
-
-	float InvDet = 1.0f / Det;
-
-	OutU = FVector::dot(T, P) * InvDet;
-	if (OutU < 0.0f || OutU > 1.0f) return false;
-
-	FVector Q = FVector::cross(T, E1);
-	OutV = FVector::dot(D, Q) * InvDet;
-	if (OutV < 0.0f || OutU + OutV > 1.0f) return false;
-
-	OutT = FVector::dot(E2, Q) * InvDet;
-
-	return (OutT > EPSILON);                  // 광선 앞쪽만
-
-	// OutT : 맞은물체가 얼마나 가까이있나(float)
-	// OutU, OutV 정확환 클릭지점을 확인하려면 필요
 }
 
 void FEditorViewportClient::DeprojectScreenToWorld(int32 MouseX, int32 MouseY, float ScreenW, float ScreenH, float NearZ, float FarZ, FVector& OutNearPoint, FVector& OutFarPoint)

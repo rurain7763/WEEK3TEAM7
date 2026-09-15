@@ -102,24 +102,19 @@ void FEngineLoop::InitAssetManager()
 	URenderer* renderer = mGraphicsManager->GetRenderer();
 	
 	// Register built-in asset types
-	Microsoft::WRL::ComPtr<ID3D11Buffer> cubeVertexBuffer = renderer->CreateVertexBuffer(Cube_vertices, sizeof(Cube_vertices));
-	TSharedPtr<FStaticMeshAsset> cubeAsset = MakeShared<FStaticMeshAsset>(FName("CubeMesh"), cubeVertexBuffer, sizeof(Cube_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> cubeAsset = MakeShared<FStaticMeshAsset>(FName("CubeMesh"), *renderer, Cube_vertices, sizeof(Cube_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(cubeAsset);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> sphereVertexBuffer = renderer->CreateVertexBuffer(Sphere_vertices, sizeof(Sphere_vertices));
-	TSharedPtr<FStaticMeshAsset> sphereAsset = MakeShared<FStaticMeshAsset>(FName("SphereMesh"), sphereVertexBuffer, sizeof(Sphere_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> sphereAsset = MakeShared<FStaticMeshAsset>(FName("SphereMesh"), *renderer, Sphere_vertices, sizeof(Sphere_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(sphereAsset);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> circleVertexBuffer = renderer->CreateVertexBuffer(Circle_vertices, sizeof(Circle_vertices));
-	TSharedPtr<FStaticMeshAsset> circleAsset = MakeShared<FStaticMeshAsset>(FName("CircleMesh"), circleVertexBuffer, sizeof(Circle_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> circleAsset = MakeShared<FStaticMeshAsset>(FName("CircleMesh"), *renderer, Circle_vertices, sizeof(Circle_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(circleAsset);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> triangleVertexBuffer = renderer->CreateVertexBuffer(Triangle_vertices, sizeof(Triangle_vertices));
-	TSharedPtr<FStaticMeshAsset> triangleAsset = MakeShared<FStaticMeshAsset>(FName("TriangleMesh"), triangleVertexBuffer, sizeof(Triangle_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> triangleAsset = MakeShared<FStaticMeshAsset>(FName("TriangleMesh"), *renderer, Triangle_vertices, sizeof(Triangle_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(triangleAsset);
 
-	Microsoft::WRL::ComPtr<ID3D11Buffer> gizmoArrowVertexBuffer = renderer->CreateVertexBuffer(GizmoArrow_vertices, sizeof(GizmoArrow_vertices));
-	TSharedPtr<FStaticMeshAsset> gizmoArrowAsset = MakeShared<FStaticMeshAsset>(FName("GizmoArrowMesh"), gizmoArrowVertexBuffer, sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> gizmoArrowAsset = MakeShared<FStaticMeshAsset>(FName("GizmoArrowMesh"), *renderer, GizmoArrow_vertices, sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
 	mAssetManager->RegisterAsset(gizmoArrowAsset);
 
 	TSharedPtr<FTexture2DAssetLoader> TextureLoader = MakeShared<FTexture2DAssetLoader>(*renderer);

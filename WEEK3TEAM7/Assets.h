@@ -3,6 +3,9 @@
 #include "Core.h"
 #include "FAsset.h"
 #include "FFontAtlas.h"
+#include "Vector.h"
+#include "Matrix.h"
+#include "FAABB.h"
 #include <d3d11.h>
 #include <wrl/client.h>
 #include <filesystem>
@@ -29,19 +32,16 @@ class FStaticMeshAsset : public FAsset
 {
 public:
 	FStaticMeshAsset() = default;
-	FStaticMeshAsset(const FName& InAssetName, Microsoft::WRL::ComPtr<ID3D11Buffer> InVertexBuffer, uint32 InVertexCount)
-		: FAsset(InAssetName, EAssetType::StaticMesh)
-		, VertexBuffer(InVertexBuffer)
-		, VertexCount(InVertexCount)
-	{
-	}
+	FStaticMeshAsset(const FName& InAssetName, URenderer& InRenderer, const FVertexSimple* InVertices, uint32 InVertexCount);
 
 	inline Microsoft::WRL::ComPtr<ID3D11Buffer> GetVertexBuffer() const { return VertexBuffer; }
 	inline uint32 GetVertexCount() const { return VertexCount; }
+	inline const FAABB& GetLocalBoundingBox() const { return BoundingBox; }
 
 private:
 	Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer;
 	uint32 VertexCount;
+	FAABB BoundingBox;
 };
 
 class FTexture2DAsset : public FAsset

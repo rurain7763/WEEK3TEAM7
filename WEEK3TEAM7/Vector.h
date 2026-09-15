@@ -143,7 +143,11 @@ inline FVector operator+(const FVector& A, const FVector& B)
 //Vector 4
 typedef struct FVector4
 {
-	float x, y, z, w;
+	union
+	{
+		struct { float x, y, z, w; };
+		float v[4];
+	};
 	
 	FVector4() : x(0), y(0), z(0), w(0) {}
 	FVector4(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
@@ -193,4 +197,43 @@ typedef struct FVector4
 
 	float Length() const { return FMath::Sqrt(x * x + y * y + z * z + w * w); }
 
+	FVector3 ToVec3() const { return FVector3(x, y, z); }
 } FVector4;
+
+struct FRay
+{
+	FVector Origin;
+	FVector Direction;
+
+	FRay() = default;
+	FRay(const FVector& InOrigin, const FVector& InDirection)
+		: Origin(InOrigin)
+		, Direction(InDirection)
+	{
+	}
+};
+
+struct FTriangle
+{
+	FVector p0;
+	FVector p1;
+	FVector p2;
+
+	FTriangle() = default;
+	FTriangle(const FVector& InP0, const FVector& InP1, const FVector& InP2)
+		: p0(InP0)
+		, p1(InP1)
+		, p2(InP2)
+	{
+	}
+};
+
+// 1. Define the triangle vertices
+struct FVertexSimple
+{
+	float x, y, z;    // Position
+	float r, g, b, a; // Color
+	float u, v;       // Texture coordinates
+
+	FVector GetPosition() const { return FVector(x, y, z); }
+};

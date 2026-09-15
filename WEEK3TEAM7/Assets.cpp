@@ -4,10 +4,24 @@
 #include "FLogManager.h"
 #include "Renderer.h"
 #include "FFontManager.h"
+#include "MathUtility.h"
 
 FString FFileAssetSource::ReadFileToString() const
 {
 	return FileManager.ReadFileToString(FilePath);
+}
+
+FStaticMeshAsset::FStaticMeshAsset(const FName& InAssetName, URenderer& InRenderer, const FVertexSimple* InVertices, uint32 InVertexCount)
+	: FAsset(InAssetName, EAssetType::StaticMesh)
+	, VertexCount(InVertexCount)
+{
+	VertexBuffer = InRenderer.CreateVertexBuffer(InVertices, sizeof(FVertexSimple) * InVertexCount);
+
+	for (uint32 i = 0; i < InVertexCount; ++i)
+	{
+		const FVertexSimple& Vertex = InVertices[i];
+		BoundingBox.ExpandToInclude(FVector(Vertex.x, Vertex.y, Vertex.z));
+	}
 }
 
 TSharedPtr<FAsset> FTexture2DAssetLoader::LoadAsset(const FName& AssetName, FAssetSource& AssetSource)
@@ -134,3 +148,4 @@ bool FFontAtlasAsset::HandleAddGlyph(FFontAtlas& FontAtlas, const FFontGlyph& In
 
 	return true;
 }
+

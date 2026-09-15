@@ -104,16 +104,15 @@ void FGraphicsManager::Render()
 
 	viewProjection = mViewUnifiedProjectionMatrix;
 
+	for (const FRenderLineInfo& lineInfo : mRenderCollector.LineInfos)
+	{
+		mRenderer->RenderLine(lineInfo);
+	}
+	mRenderCollector.LineInfos.Empty();
+
 	for (const FRenderInfo& renderInfo : mRenderCollector.RenderInfos)
 	{
-		//mRenderer->UpdateConstant(renderInfo.WorldTransformMatrix, mViewProjectionMatrix, renderInfo.Color);
-
-		TSharedPtr<FStaticMeshAsset> asset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(renderInfo.StaticMeshName);
-		if (!asset)
-		{
-			UE_LOG("Error: Static mesh asset not found for name: %s", renderInfo.StaticMeshName.ToString().c_str());
-			continue;
-		}
+		TSharedPtr<FStaticMeshAsset> Asset = renderInfo.StaticMesh;
 
 		mMeshPipeline->ClearShaderResource();
 		mMeshPipeline->ClearSamplerState();
@@ -132,11 +131,11 @@ void FGraphicsManager::Render()
 			mMeshPipeline->SetShaderResource(0, renderInfo.Texture->GetSRV());
 			mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 
-			mRenderer->RenderPrimitive(mMeshPipeline, asset->GetVertexBuffer(), asset->GetVertexCount());
+			mRenderer->RenderPrimitive(mMeshPipeline, Asset->GetVertexBuffer(), Asset->GetVertexCount());
 		}
 		else
 		{
-			mRenderer->RenderPrimitive(asset->GetVertexBuffer(), asset->GetVertexCount(), renderInfo.WorldTransformMatrix);
+			mRenderer->RenderPrimitive(Asset->GetVertexBuffer(), Asset->GetVertexCount(), renderInfo.WorldTransformMatrix);
 		}
 	}
 
@@ -343,15 +342,13 @@ void FGraphicsManager::RenderHighLight(const FRenderInfo& RI)
 #endif
 }
 
-
 void FGraphicsManager::StartProjectionTransition(bool orthographic)
 {
 	mProjectionStartRatio = mProjectionRatio;
 	mProjectionTargetRatio = orthographic ? 0.0f : 1.0f;
 	mProjectionElapsed = 0.0f;
 
-	mbProjectionTransitioning =
-		mProjectionStartRatio != mProjectionTargetRatio;
+	mbProjectionTransitioning = mProjectionStartRatio != mProjectionTargetRatio;
 }
 
 bool FGraphicsManager::IsOrthographicTarget() const

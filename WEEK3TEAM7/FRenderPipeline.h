@@ -25,6 +25,7 @@ public:
 	ID3D11RasterizerState* GetRasterizerState(EViewModeIndex ViewMode) const;
 	void SetDepthStencilState(bool bEnableDepthTest, bool bEnableDepthWrite);
 	void SetBlendState(const D3D11_BLEND_DESC& BlendDesc);
+	void SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY Topology);
 	void SetShader(const FString& ShaderPath);
 	
 	void SetShaderResource(uint32 Slot, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV);
@@ -74,6 +75,7 @@ private:
 
 	ID3D11Device* Device = nullptr;
 	ID3D11DeviceContext* DeviceContext = nullptr;
+	D3D11_PRIMITIVE_TOPOLOGY PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	FSamplerStatePool* SamplerStatePool = nullptr;
 	FDepthStencilStatePool* DepthStencilStatePool = nullptr;
 	static constexpr int32 ViewModeCount = static_cast<int32>(EViewModeIndex::VMI_Max);

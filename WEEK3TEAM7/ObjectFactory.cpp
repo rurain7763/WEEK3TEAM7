@@ -66,7 +66,6 @@ bool FObjectFactory::RegisterClassInfo(FString className, const FClassInfo* clas
 }
 
 #include "SceneComponent.h"
-#include "PrimitiveComponent.h"
 #include "CubeComponent.h"
 #include "SphereComponent.h"
 #include "UTextComponent.h"
