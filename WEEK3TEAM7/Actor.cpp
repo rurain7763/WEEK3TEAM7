@@ -151,6 +151,10 @@ void AActor::Render(FRenderCollector& RenderCollector)
 	for (UActorComponent* component : mComponents)
 	{
 		component->Render(RenderCollector);
+
+		// 렌더 정보를 모으는 김에 픽킹 대상도 같이 모은다.
+		// 액터 계층을 두 번 훑지 않기 위함이다.
+		component->RegisterPickTarget(RenderCollector);
 	}
 }
 

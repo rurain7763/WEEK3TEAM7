@@ -60,6 +60,11 @@ FSceneManager::~FSceneManager()
 	delete mCurrentWorld;
 }
 
+void FSceneManager::Tick(float deltaTime)
+{
+	mCurrentWorld->Tick(deltaTime);
+}
+
 void FSceneManager::Update(float deltaTime, FRenderCollector& outCollector)
 {
 	// Todo: Save / Load
@@ -357,6 +362,12 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 		if (ImGui::Checkbox("World axis", &bShowWorldAxis))
 		{
 			guiReference.GraphicsManager->SetShowWorldAxis(bShowWorldAxis);
+		}
+
+		bool bShowUUIDText = guiReference.GraphicsManager->GetShowUUIDText();
+		if (ImGui::Checkbox("UUID", &bShowUUIDText))
+		{
+			guiReference.GraphicsManager->SetShowUUIDText(bShowUUIDText);
 		}
 
 		bool bOrthographic = guiReference.GraphicsManager->IsOrthographicTarget();

@@ -150,6 +150,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	FRenderCollector& RenderCollector = mGraphicsManager->GetRenderCollector();
 	RenderCollector.Camera = &ViewportClient->GetCamera();
+	RenderCollector.bShowUUIDText = mGraphicsManager->GetShowUUIDText();
 
 	//Input Threads
 	{
@@ -166,9 +167,59 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	//Game Threads
 	{
-		// 레이캐스트보다 먼저 돌려야 한다.
-		// 여기서 RenderInfos 가 갱신되고, RayCast 가 그걸 읽는다.
+		mSceneManager->Tick(deltaTime);
 		mSceneManager->Update(deltaTime, RenderCollector);
+	}
+
+	//mouse picking
+	{
+		const FInputState& Input = WindowApplication.Input;
+
+		// 뷰포트가 ImGui 창이 되면서 그 위에서는 io.WantCaptureMouse 가 항상 true 다.
+		// 그대로 두면 씬을 클릭해도 선택이 되지 않는다. 카메라/기즈모와 같은 기준을 쓴다.
+		AActor* HitActor = ViewportClient->PerformMousePicking(mGraphicsManager->GetPerspectiveRatio(), RenderCollector, *mSceneManager);
+		if (mSceneManager->IsViewportHovered() && Input.WasPressed(VK_LBUTTON) && !ViewportClient->mGizmo.IsDragging() && !ViewportClient->mGizmo.IsMouseOverHandle())
+		{
+			if (HitActor)
+			{
+				mSceneManager->SetSelectedActor(HitActor);
+			}
+			else
+			{
+				mSceneManager->ResetSelectedActor();
+			}
+		}
+
+		AActor* SelectedActor = mSceneManager->GetSelectedActor();
+		if (SelectedActor)
+		{
+			FTransform Transform = SelectedActor->GetTransform();
+			USceneComponent* RootComponent = SelectedActor->GetRootComponent();
+
+			UPrimitiveComponent* PrimitiveComponent = RootComponent->Cast<UPrimitiveComponent>();
+			if (PrimitiveComponent)
+			{
+				// 선택된 액터의 AABB를 화면에 표시
+				FMatrix WorldMatrix = Transform.MakeMatrix();
+				const FAABB& AABB = PrimitiveComponent->GetMesh()->GetLocalBoundingBox().ToWorld(WorldMatrix);
+
+				AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End)
+					{
+						FVector4 WorldStart = FVector4(Start, 1.f);
+						FVector4 WorldEnd = FVector4(End, 1.f);
+
+						FRenderLineInfo LineInfo;
+						LineInfo.Start = WorldStart.ToVec3();
+						LineInfo.End = WorldEnd.ToVec3();
+						LineInfo.Color = FVector4(1.f, 0.f, 0.f, 1.f); // 빨간색
+						LineInfo.Thickness = 0.01f;
+
+						RenderCollector.LineInfos.Add(LineInfo);
+					});
+			}
+		}
+
+		ViewportClient->mGizmo.Update(mSceneManager);
 	}
 
 	//Render Threads

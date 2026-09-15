@@ -81,27 +81,26 @@ bool UWorld::RemoveActor(uint32 componentUUID)
 	return true;
 }
 
-void UWorld::Update(float deltaTime, FRenderCollector& outCollector)
+void UWorld::Tick(float deltaTime)
 {
-	// 쿼드 정보는 뷰포트가 채우고 Render()가 비우므로 여기서 건드리지 않는다
-	outCollector.RenderInfos.Reset(DEFAULT_RESERVE_MEM);
-
 	for (AActor* actor : mActors)
 	{
 		actor->Tick(deltaTime);
-		actor->Render(outCollector);
 	}
 }
 
-/*
-void UWorld::Render()
+void UWorld::Update(float deltaTime, FRenderCollector& outCollector)
 {
+	// 쿼드/라인 정보는 Render()가 그린 뒤 스스로 비운다. 월드 바깥(엔진 루프의 AABB 디버그 라인 등)에서도
+	// 채워지므로 여기서 Reset 하면 남의 것까지 날린다. 메시/픽킹 배열만 여기서 갈아끼운다.
+	outCollector.RenderInfos.Reset(DEFAULT_RESERVE_MEM);
+	outCollector.PickTargets.Reset(DEFAULT_RESERVE_MEM);
+
 	for (AActor* actor : mActors)
 	{
-		actor->Render();
+		actor->Render(outCollector);
 	}
 }
-*/
 
 int32 UWorld::getActorIndex(uint32 actorUUID) const
 {

@@ -46,6 +46,7 @@ public:
 	FSceneManager();
 	~FSceneManager();
 
+	void Tick(float deltaTime);
 	void Update(float deltaTime, FRenderCollector& outCollector);
 	void UpdateGUI(const FGuiReference& guiReference);
 

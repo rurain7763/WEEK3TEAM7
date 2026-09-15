@@ -22,6 +22,7 @@ public:
 
 	TArray<AActor*>& GetActors() { return mActors; }
 
+	void Tick(float deltaTime);
 	void Update(float deltaTime, FRenderCollector& outCollector);
 	//void Render();
 

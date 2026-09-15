@@ -89,7 +89,6 @@ public:
 			SetRelativeRotation(Rotation);
 		}
 		
-		// NOTE: ÀÏ´Ü TextComponent´Â OwnerÀÇ À§Ä¡¸¦ µû¶ó°£´Ù. ÃßÈÄ¿¡ Hierarchy¸¦ ±¸ÇöÇÏ¸é, ºÎ¸ğºÎÅÍ °è»êÇØ¼­ ³»·Á¿Â WorldTransformÀ» ±â¹İÀ¸·Î °è»êÇØ¾ß ÇÑ´Ù.
 		FVector Location = mOwner->GetRootComponent()->GetRelativeLocation();
 		Location.z += 1.0f;
 		SetRelativeLocation(Location);
@@ -97,6 +96,13 @@ public:
 
 	void Render(FRenderCollector& RenderCollector) override
 	{
+		// Show Flagsì—ì„œ ë„ë©´ ì¿¼ë“œë¥¼ ì•„ì˜ˆ ë§Œë“¤ì§€ ì•ŠëŠ”ë‹¤.
+		// ë§Œë“¤ê³  ê±°ë¥´ëŠ” ê²Œ ì•„ë‹ˆë¼ ê¸€ì ìˆ˜ë§Œí¼ì˜ ê³„ì‚° ìì²´ê°€ ì‚¬ë¼ì§„ë‹¤.
+		if (!RenderCollector.bShowUUIDText)
+		{
+			return;
+		}
+
 		if (!mFontAtlasAsset)
 		{
 			return;

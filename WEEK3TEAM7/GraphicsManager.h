@@ -65,6 +65,9 @@ public:
 	bool GetShowWorldAxis() const { return mbShowWorldAxis; }
 	void SetShowWorldAxis(bool bShow) { mbShowWorldAxis = bShow; }
 
+	bool GetShowUUIDText() const { return mbShowUUIDText; }
+	void SetShowUUIDText(bool bShow) { mbShowUUIDText = bShow; }
+
 	static FVector GetPrimitiveCenter(EPrimitive type);
 	static FVector GetPrimitiveHalfExtent(EPrimitive type);
 	void RenderHighLight(const FRenderInfo& RI);
@@ -100,6 +103,7 @@ private:
 	EViewModeIndex mViewModeIndex = EViewModeIndex::VMI_Lit;
 	bool mbPerspectiveProjection;
 	bool mbShowWorldAxis = true;
+	bool mbShowUUIDText = true;
 	float mAspect;
 	float mProjectionRatio; // 0.0f ~ 1.0f, 0이면 직교, 1이면 원근, 그 사이면 혼합
 
