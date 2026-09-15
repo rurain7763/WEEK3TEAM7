@@ -43,7 +43,6 @@ struct FRenderCollector
 	enum { DEFAULT_RESERVE_MEM = 1024U };
 
 	FCamera* Camera = nullptr;
-	bool bShowUUIDText = true;
 
 	TArray<FRenderInfo>     RenderInfos;   // 메시 패스
 	TArray<FRenderQuadInfo> QuadInfos;     // 쿼드 패스

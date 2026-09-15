@@ -150,7 +150,6 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 	FRenderCollector& RenderCollector = mGraphicsManager->GetRenderCollector();
 	RenderCollector.Camera = &ViewportClient->GetCamera();
-	RenderCollector.bShowUUIDText = mGraphicsManager->GetShowUUIDText();
 
 	//Input Threads
 	{

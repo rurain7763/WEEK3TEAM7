@@ -162,7 +162,7 @@ void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const 
 void FGraphicsManager::DrawWorldAxis()
 {
 #if 0
-	if (!mbShowWorldAxis) return;
+	if (!FShowFlags::Get().IsEnabled(EShowFlag::WorldAxis)) return;
 
 	// far plane이 100이라 그 안쪽으로 잡아야 잘리지 않는다
 	constexpr float AXIS_LENGTH = 50.0f;
