@@ -116,44 +116,7 @@ void FFontAssetLoader::UnloadAsset(TSharedPtr<FAsset> Asset)
 	// Nothing to do for now
 }
 
-FAtlasAsset::FAtlasAsset(const FName& InAssetName, EAssetType InAssetType, URenderer& InRenderer, uint32 InWidth, uint32 InHeight, DXGI_FORMAT InFormat)
-	: FTexture2DAsset(InAssetName, InAssetType, nullptr, nullptr)
-	, Renderer(InRenderer)
-{
-	D3D11_TEXTURE2D_DESC TextureDesc = {};
-	TextureDesc.Width = InWidth;
-	TextureDesc.Height = InHeight;
-	TextureDesc.MipLevels = 1;
-	TextureDesc.ArraySize = 1;
-	TextureDesc.Format = InFormat;
-	TextureDesc.SampleDesc.Count = 1;
-	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
-	TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	TextureDesc.CPUAccessFlags = 0;
-	TextureDesc.MiscFlags = 0;
-
-	Texture = Renderer.CreateTexture2D(TextureDesc);
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
-	SRVDesc.Format = TextureDesc.Format;
-	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	SRVDesc.Texture2D.MostDetailedMip = 0;
-	SRVDesc.Texture2D.MipLevels = 1;
-
-	SRV = Renderer.CreateShaderResourceView(Texture, &SRVDesc);
-
-	Width = InWidth;
-	Height = InHeight;
-	Format = InFormat;
-}
-
-FAtlasAsset::FAtlasAsset(const FName& InAssetName, EAssetType InAssetType, URenderer& InRenderer, Microsoft::WRL::ComPtr<ID3D11Texture2D> InTexture, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> InSRV)
-	: FTexture2DAsset(InAssetName, InAssetType, InTexture, InSRV)
-	, Renderer(InRenderer)
-{
-}
-
-void FAtlasAsset::UpdateRegion(uint32 Left, uint32 Top, uint32 Right, uint32 Bottom, const void* Data, uint32 RowPitch)
+void FFontAtlasAsset::UpdateRegion(uint32 Left, uint32 Top, uint32 Right, uint32 Bottom, const void* Data, uint32 RowPitch)
 {
 	if (!Texture || !Data)
 	{
@@ -177,10 +140,37 @@ void FAtlasAsset::UpdateRegion(uint32 Left, uint32 Top, uint32 Right, uint32 Bot
 }
 
 FFontAtlasAsset::FFontAtlasAsset(const FName& InAssetName, URenderer& InRenderer, TSharedPtr<FFontAsset>& InFontAsset, uint32 InWidth, uint32 InHeight, uint32 InPaddingW, uint32 InPaddingH)
-	: FAtlasAsset(InAssetName, EAssetType::FontAtlas, InRenderer, InWidth, InHeight, DXGI_FORMAT_R8_UNORM)
+	: FTexture2DAsset(InAssetName, EAssetType::FontAtlas, nullptr, nullptr)
+	, Renderer(InRenderer)
 	, FontAsset(InFontAsset)
 	, FontAtlas(MakeShared<FFontAtlas>(InFontAsset->GetFace(), InWidth, InHeight, InPaddingW, InPaddingH))
 {
+	D3D11_TEXTURE2D_DESC TextureDesc = {};
+	TextureDesc.Width = InWidth;
+	TextureDesc.Height = InHeight;
+	TextureDesc.MipLevels = 1;
+	TextureDesc.ArraySize = 1;
+	TextureDesc.Format = DXGI_FORMAT_R8_UNORM;
+	TextureDesc.SampleDesc.Count = 1;
+	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
+	TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	TextureDesc.CPUAccessFlags = 0;
+	TextureDesc.MiscFlags = 0;
+
+	Texture = Renderer.CreateTexture2D(TextureDesc);
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+	SRVDesc.Format = TextureDesc.Format;
+	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	SRVDesc.Texture2D.MostDetailedMip = 0;
+	SRVDesc.Texture2D.MipLevels = 1;
+
+	SRV = Renderer.CreateShaderResourceView(Texture, &SRVDesc);
+
+	Width = InWidth;
+	Height = InHeight;
+	Format = TextureDesc.Format;
+
 	FontAtlas->SetAtlasHandler(*this);
 }
 
@@ -192,9 +182,10 @@ bool FFontAtlasAsset::HandleAddGlyph(FFontAtlas& FontAtlas, const FFontGlyph& In
 }
 
 FSpriteAtlasAsset::FSpriteAtlasAsset(const FName& InAssetName, URenderer& InRenderer, const TSharedPtr<FTexture2DAsset>& InSource, uint32 InCols, uint32 InRows, uint32 InFrameCount)
-	: FAtlasAsset(InAssetName, EAssetType::SpriteAtlas, InRenderer,
+	: FTexture2DAsset(InAssetName, EAssetType::SpriteAtlas,
 		InSource ? InSource->GetTexture() : Microsoft::WRL::ComPtr<ID3D11Texture2D>(),
 		InSource ? InSource->GetSRV() : Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>())
+	, Renderer(InRenderer)
 {
 	if (!InSource)
 	{
@@ -225,9 +216,10 @@ FSpriteAtlasAsset::FSpriteAtlasAsset(const FName& InAssetName, URenderer& InRend
 }
 
 FSpriteAtlasAsset::FSpriteAtlasAsset(const FName& InAssetName, URenderer& InRenderer, const TSharedPtr<FTexture2DAsset>& InSource, const TArray<FVector4>& InFrameSubUVs)
-	: FAtlasAsset(InAssetName, EAssetType::SpriteAtlas, InRenderer,
+	: FTexture2DAsset(InAssetName, EAssetType::SpriteAtlas,
 		InSource ? InSource->GetTexture() : Microsoft::WRL::ComPtr<ID3D11Texture2D>(),
 		InSource ? InSource->GetSRV() : Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>())
+	, Renderer(InRenderer)
 	, FrameSubUVs(InFrameSubUVs)
 {
 }
