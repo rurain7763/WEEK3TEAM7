@@ -210,7 +210,11 @@ void FEngineLoop::Tick(bool bPumpMessages)
 				{
 					// 선택된 액터의 AABB를 화면에 표시
 					FMatrix WorldMatrix = Transform.MakeMatrix();
-					const FAABB& AABB = PrimitiveComponent->GetMesh()->GetLocalBoundingBox().ToWorld(WorldMatrix);
+
+					TSharedPtr<FStaticMeshAsset> MeshAsset = PrimitiveComponent->GetMesh();
+					if (!MeshAsset.get()) continue;
+
+					const FAABB& AABB = MeshAsset->GetLocalBoundingBox().ToWorld(WorldMatrix);
 
 					AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End)
 					{

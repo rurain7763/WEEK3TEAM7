@@ -528,6 +528,36 @@ void FSceneManager::updatePropertyWindowGUI(const FGuiReference& guiReference)
 			mSelectedActor->SetScale(scaleInput);
 		}
 
+		UText3DComponent* text3DComponent = nullptr;
+		for (UActorComponent* component : mSelectedActor->GetComponents())
+		{
+			if (component->IsA<UText3DComponent>())
+			{
+				text3DComponent = component->Cast<UText3DComponent>();
+				break;
+			}
+		}
+
+		if (text3DComponent)
+		{
+			ImGui::SeparatorText("Text");
+
+			char textBuffer[256] = {};
+			const FString currentText = Wide2Utf(text3DComponent->GetText());
+			strncpy_s(textBuffer, currentText.CStr(), sizeof(textBuffer) - 1);
+
+			if (ImGui::InputText("Display Text", textBuffer, sizeof(textBuffer)))
+			{
+				try
+				{
+					text3DComponent->SetText(Utf2Wide(FString(textBuffer)));
+				}
+				catch (const std::runtime_error&)
+				{
+				}
+			}
+		}
+
 		USpotLightComponent* spotLightComponent = nullptr;
 		for (UActorComponent* component : mSelectedActor->GetComponents())
 		{
