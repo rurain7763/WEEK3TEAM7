@@ -7,7 +7,6 @@
 #include "TSparseArray.h"
 #include "ObjectFactory.h"
 
-
 namespace json { class JSON; }
 
 class UObject;

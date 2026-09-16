@@ -15,11 +15,25 @@ FStaticMeshAsset::FStaticMeshAsset(const FName& InAssetName, URenderer& InRender
 	: FAsset(InAssetName, EAssetType::StaticMesh)
 	, VertexCount(InVertexCount)
 {
-	VertexBuffer = InRenderer.CreateVertexBuffer(InVertices, sizeof(FVertexSimple) * InVertexCount);
+	VertexBuffer = InRenderer.CreateVertexBuffer(InVertices, InVertexCount);
 
 	for (uint32 i = 0; i < InVertexCount; ++i)
 	{
 		const FVertexSimple& Vertex = InVertices[i];
+		BoundingBox.ExpandToInclude(FVector(Vertex.x, Vertex.y, Vertex.z));
+	}
+}
+
+FStaticMeshAsset::FStaticMeshAsset(const FName& InAssetName, URenderer& InRenderer, const FVertexSimple* InVertices, uint32 InVertexCount, const uint32* InIndices, uint32 InIndexCount)
+	: FAsset(InAssetName, EAssetType::StaticMesh)
+	, VertexCount(InVertexCount)
+	, IndexCount(InIndexCount)
+{
+	VertexBuffer = InRenderer.CreateVertexBuffer(InVertices, InVertexCount);
+	IndexBuffer = InRenderer.CreateIndexBuffer(InIndices, InIndexCount);
+	for (uint32 i = 0; i < InIndexCount; ++i)
+	{
+		const FVertexSimple& Vertex = InVertices[InIndices[i]];
 		BoundingBox.ExpandToInclude(FVector(Vertex.x, Vertex.y, Vertex.z));
 	}
 }

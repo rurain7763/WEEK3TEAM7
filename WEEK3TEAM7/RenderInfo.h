@@ -31,10 +31,11 @@ struct FRenderQuadInfo
 
 struct FRenderLineInfo
 {
-	FVector3 Start;
-	FVector3 End;
 	FVector4 Color;
+	FVector3 Start;
 	float Thickness;
+	FVector3 End;
+	float Padding;
 };
 
 // 이번 프레임에 그릴 것들을 한데 모은다. 소유자는 FGraphicsManager.

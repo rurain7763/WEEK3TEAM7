@@ -19,6 +19,9 @@ struct FGenericPlatformMath
 
 	[[nodiscard]] static FORCEINLINE float Cos(float Value) { return cosf(Value); }
 	[[nodiscard]] static FORCEINLINE double Cos(double Value) { return cos(Value); }
+	
+	[[nodiscard]] static FORCEINLINE float Tan(float Value) { return tanf(Value); }
+	[[nodiscard]] static FORCEINLINE double Tan(double Value) { return tan(Value); }
 
 	template< class T >
 	[[nodiscard]] static constexpr FORCEINLINE T Abs(const T A)

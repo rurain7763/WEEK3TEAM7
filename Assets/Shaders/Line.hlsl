@@ -1,16 +1,20 @@
-cbuffer Constants : register(b0) // FConstants
+struct LineData
 {
-	float4 color;
+    float4 color;
     float3 start;
     float thickness;
     float3 end;
-	float3 padding;
-}
+    float padding;
+};
 
-cbuffer CameraConstants : register(b1) // CameraConstants
+cbuffer CameraConstants : register(b0)
 {
     row_major float4x4 view_projection;
+    float2 viewport_size;
+    float padding[2];
 }
+
+StructuredBuffer<LineData> lines : register(t0);
 
 struct PS_INPUT
 {
@@ -24,18 +28,23 @@ float2 Perpendicular(float2 v)
 }
 
 // Vertex Shader
-PS_INPUT mainVS(uint vertex_id : SV_VertexID)
+PS_INPUT mainVS(uint instance_id : SV_InstanceID, uint vertex_id : SV_VertexID)
 {
 	PS_INPUT output;
 	
-    float4 proj_start = mul(float4(start, 1.f), view_projection);
+    LineData current_line = lines[instance_id];
+    
+    float4 proj_start = mul(float4(current_line.start, 1.f), view_projection);
     float3 proj_start_ndc = proj_start.xyz / proj_start.w;
     
-    float4 proj_end = mul(float4(end, 1.f), view_projection);
+    float4 proj_end = mul(float4(current_line.end, 1.f), view_projection);
     float3 proj_end_ndc = proj_end.xyz / proj_end.w;
     
-    float3 normal = normalize(float3(Perpendicular(proj_end_ndc.xy - proj_start_ndc.xy), 0.f));
-    float2 offset = normal.xy * thickness * 0.5f;
+    float2 pixel_delta = (proj_end_ndc.xy - proj_start_ndc.xy) * viewport_size * 0.5f;
+    
+    float2 normal = normalize(Perpendicular(pixel_delta));
+    float2 offset_pixels = normal * current_line.thickness * 0.5f;
+    float2 offset = offset_pixels * 2.0f / viewport_size;
     
     float4 start_top = proj_start;
     float4 start_bottom = proj_start;
@@ -58,7 +67,7 @@ PS_INPUT mainVS(uint vertex_id : SV_VertexID)
     int indices[6] = { 0, 1, 2, 0, 2, 3 };
     
     output.position = positions[indices[vertex_id]];
-    output.color = color;
+    output.color = current_line.color;
 	
 	return output;
 }

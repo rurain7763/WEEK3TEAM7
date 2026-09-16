@@ -110,10 +110,7 @@ void FGraphicsManager::Render()
 
 	viewProjection = mViewUnifiedProjectionMatrix;
 
-	for (const FRenderLineInfo& lineInfo : mRenderCollector.LineInfos)
-	{
-		mRenderer->RenderLine(lineInfo);
-	}
+	mRenderer->RenderLines(mRenderCollector.LineInfos);
 	mRenderCollector.LineInfos.Empty();
 
 	for (const FRenderInfo& renderInfo : mRenderCollector.RenderInfos)
@@ -137,11 +134,11 @@ void FGraphicsManager::Render()
 			mMeshPipeline->SetShaderResource(0, renderInfo.Texture->GetSRV());
 			mMeshPipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 
-			mRenderer->RenderPrimitive(mMeshPipeline, Asset->GetVertexBuffer(), Asset->GetVertexCount());
+			mRenderer->RenderPrimitiveIndexed(mMeshPipeline, Asset->GetVertexBuffer(), Asset->GetIndexBuffer(), Asset->GetIndexCount());
 		}
 		else
 		{
-			mRenderer->RenderPrimitive(Asset->GetVertexBuffer(), Asset->GetVertexCount(), renderInfo.WorldTransformMatrix);
+			mRenderer->RenderPrimitiveIndexed(Asset->GetVertexBuffer(), Asset->GetIndexBuffer(), Asset->GetIndexCount(), renderInfo.WorldTransformMatrix);
 		}
 	}
 

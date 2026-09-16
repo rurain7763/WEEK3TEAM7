@@ -1,5 +1,7 @@
 ﻿#include "Renderer.h"
 
+constexpr uint32 MaxLineInstances = 1024;
+
 namespace
 {
 	UINT GetByteSizeFromFormat(DXGI_FORMAT Format)
@@ -32,6 +34,8 @@ void URenderer::Create(HWND hWindow)
 	CreateFrameBuffer();
 	CreateDepthStencilBuffer();
 
+	LineStructuredBuffer = CreateStructuredBuffer<FRenderLineInfo>(MaxLineInstances);
+
 	CD3D11_BLEND_DESC AlphaBlendDesc = {};
 	AlphaBlendDesc.RenderTarget[0].BlendEnable = TRUE;
 	AlphaBlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
@@ -46,8 +50,8 @@ void URenderer::Create(HWND hWindow)
 	LinePipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	LinePipeline->SetDepthStencilState(true, true);
 	LinePipeline->SetShader("Assets/Shaders/Line.hlsl");
-	LinePipeline->AddConstantBuffer<FLineConstants>();
-	LinePipeline->AddConstantBuffer<FMatrix>();
+	LinePipeline->AddConstantBuffer<FCameraConstants>();
+	LinePipeline->SetShaderResource(0, LineStructuredBuffer->SRV);
 
 	PrimitivePipeline = CreateRenderPipeline();
 	PrimitivePipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, {EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe});
@@ -260,9 +264,28 @@ void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
 	DeviceContext->OMSetRenderTargets(1, &FrameBufferRTV, DepthStencilView);
 	DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
 
-	LinePipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
+	FCameraConstants CameraConstants;
+	CameraConstants.ViewProjectionMatrix = ViewProjectionMatrix;
+	CameraConstants.ViewportSize = FVector2((float)Width, (float)Height);
+
+	LinePipeline->UpdateConstantBuffer(0, CameraConstants);
 	PrimitivePipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
 	QuadPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
+}
+
+Microsoft::WRL::ComPtr<ID3D11Buffer> URenderer::CreateIndexBuffer(const uint32* Indices, UINT Count)
+{
+	D3D11_BUFFER_DESC IndexBufferDesc = {};
+	IndexBufferDesc.ByteWidth = Count * sizeof(uint32);
+	IndexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+
+	D3D11_SUBRESOURCE_DATA IndexBufferSRD = { Indices };
+	
+	Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer;
+	Device->CreateBuffer(&IndexBufferDesc, &IndexBufferSRD, IndexBuffer.GetAddressOf());
+
+	return IndexBuffer;
 }
 
 Microsoft::WRL::ComPtr<ID3D11Texture2D> URenderer::CreateTexture2D(const D3D11_TEXTURE2D_DESC& Desc, const void* InitialData)
@@ -384,10 +407,12 @@ void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const
 
 	if (Pipeline->ShaderResourceViews.Num())
 	{
+		DeviceContext->VSSetShaderResources(0, Pipeline->ShaderResourceViews.Num(), &Pipeline->ShaderResourceViews[0]);
 		DeviceContext->PSSetShaderResources(0, Pipeline->ShaderResourceViews.Num(), &Pipeline->ShaderResourceViews[0]);
 	}
 	else
 	{
+		DeviceContext->VSSetShaderResources(0, 0, nullptr);
 		DeviceContext->PSSetShaderResources(0, 0, nullptr);
 	}
 
@@ -489,21 +514,25 @@ void URenderer::BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget
 	DeviceContext->RSSetViewports(1, &Viewport);
 }
 
-void URenderer::RenderLine(const FRenderLineInfo& Info) const
+void URenderer::RenderLines(const TArray<FRenderLineInfo>& Lines) const
 {
-	FLineConstants LineConstants;
-	LineConstants.Color = Info.Color;
-	LineConstants.Start = Info.Start;
-	LineConstants.End = Info.End;
-	LineConstants.Thickness = Info.Thickness;
-
-	LinePipeline->UpdateConstantBuffer(0, LineConstants);
+	uint32 Remaining = Lines.Num();
+	const FRenderLineInfo* Offset = Lines.Data();
 
 	BindPipeline(LinePipeline);
 
-	UINT Offset = 0;
-	DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &Offset);
-	DeviceContext->Draw(6, 0);
+	while (Remaining > 0)
+	{
+		uint32 BatchSize = FGenericPlatformMath::Min(Remaining, MaxLineInstances);
+		LineStructuredBuffer->UpdateStructuredBuffer(Offset, BatchSize);
+
+		UINT OffsetIndex = 0;
+		DeviceContext->IASetVertexBuffers(0, 0, NULL, NULL, &OffsetIndex);
+		DeviceContext->DrawInstanced(6, BatchSize, 0, 0);
+
+		Remaining -= BatchSize;
+		Offset += BatchSize;
+	}
 }
 
 void URenderer::RenderQuad(const FRenderQuadInfo& Info) const
@@ -538,6 +567,7 @@ void URenderer::RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Mic
 	DeviceContext->Draw(NumVertices, 0);
 }
 
+
 void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const
 {
 	PrimitivePipeline->UpdateConstantBuffer(0, FConstants{ Model, FVector4(1.0f, 1.0f, 1.0f, 1.0f), 1 });
@@ -550,6 +580,23 @@ void URenderer::RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UIN
 	PrimitivePipeline->UpdateConstantBuffer(0, FConstants{ Model, Color, 0 });
 
 	RenderPrimitive(PrimitivePipeline, Buffer, NumVertices);
+}
+
+void URenderer::RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer, Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer, UINT NumIndices) const
+{
+	BindPipeline(Pipeline);
+
+	UINT Offset = 0;
+	DeviceContext->IASetVertexBuffers(0, 1, VertexBuffer.GetAddressOf(), &Pipeline->Stride, &Offset);
+	DeviceContext->IASetIndexBuffer(IndexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+	DeviceContext->DrawIndexed(NumIndices, 0, 0);
+}
+
+void URenderer::RenderPrimitiveIndexed(Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer, Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer, UINT NumIndices, const FMatrix& Model) const
+{
+	PrimitivePipeline->UpdateConstantBuffer(0, FConstants{ Model, FVector4(1.0f, 1.0f, 1.0f, 1.0f), 1 });
+
+	RenderPrimitiveIndexed(PrimitivePipeline, VertexBuffer, IndexBuffer, NumIndices);
 }
 
 void URenderer::RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness) const

@@ -33,14 +33,21 @@ class FStaticMeshAsset : public FAsset
 public:
 	FStaticMeshAsset() = default;
 	FStaticMeshAsset(const FName& InAssetName, URenderer& InRenderer, const FVertexSimple* InVertices, uint32 InVertexCount);
+	FStaticMeshAsset(const FName& InAssetName, URenderer& InRenderer, const FVertexSimple* InVertices, uint32 InVertexCount, const uint32* InIndices, uint32 InIndexCount);
 
 	inline Microsoft::WRL::ComPtr<ID3D11Buffer> GetVertexBuffer() const { return VertexBuffer; }
 	inline uint32 GetVertexCount() const { return VertexCount; }
+	inline Microsoft::WRL::ComPtr<ID3D11Buffer> GetIndexBuffer() const { return IndexBuffer; }
+	inline uint32 GetIndexCount() const { return IndexCount; }
 	inline const FAABB& GetLocalBoundingBox() const { return BoundingBox; }
 
 private:
 	Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer;
 	uint32 VertexCount;
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer;
+	uint32 IndexCount;
+
 	FAABB BoundingBox;
 };
 

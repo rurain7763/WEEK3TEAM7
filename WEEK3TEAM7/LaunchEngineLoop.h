@@ -10,6 +10,7 @@
 #include "World.h"
 #include "FAssetManager.h"
 #include "FFontManager.h"
+#include "FComponentVisualizer.h"
 
 #include <d3d11.h>
 
@@ -43,6 +44,8 @@ private:
 	FFileManager* mFileManager;
 	FAssetManager* mAssetManager;
 	FFontManager* mFontManager;
+
+	FComponentVisualizerModule mComponentVisualizerModule;
 };
 
 inline FEngineLoop GEngineLoop;

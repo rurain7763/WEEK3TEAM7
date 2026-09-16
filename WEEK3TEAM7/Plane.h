@@ -1,19 +1,20 @@
 #pragma once
 
 #include "Vector.h"
+#include "Core.h"
 
-// 원점 중심의 1 x 1 평면. X = 0, Y/Z = -0.5 ~ +0.5.
-// Quad.hlsl과 동일한 정점 순서와 UV를 사용한다.
-// 삼각형 2개를 인덱스 없이 나열하며, 외적 기준 법선은 -X 방향이다.
-// 흰색 정점 색으로 텍스처의 원래 색을 유지한다.
-// Vertex layout: x, y, z, r, g, b, a, u, v.
-inline FVertexSimple Plane_vertices[6] =
+// Centered unit plane in YZ, normal -X. Full [0,1] UVs, with (0,0) at texture top-left.
+// Indexed triangle list. Vertex layout: x, y, z, r, g, b, a, u, v.
+// Vertices are shared only when position, color and UV all match.
+inline FVertexSimple Plane_vertices[] =
 {
-    { 0.0f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f, 1.0f,  0.0f, 0.0f },
-    { 0.0f,  0.5f,  0.5f,  1.0f, 1.0f, 1.0f, 1.0f,  1.0f, 0.0f },
-    { 0.0f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f, 1.0f,  1.0f, 1.0f },
+    { 0.000000f, -0.500000f, 0.500000f, 1.000000f, 1.000000f, 1.000000f, 1.000000f, 0.000000f, 0.000000f },
+    { 0.000000f, 0.500000f, 0.500000f, 1.000000f, 1.000000f, 1.000000f, 1.000000f, 1.000000f, 0.000000f },
+    { 0.000000f, 0.500000f, -0.500000f, 1.000000f, 1.000000f, 1.000000f, 1.000000f, 1.000000f, 1.000000f },
+    { 0.000000f, -0.500000f, -0.500000f, 1.000000f, 1.000000f, 1.000000f, 1.000000f, 0.000000f, 1.000000f },
+};
 
-    { 0.0f, -0.5f,  0.5f,  1.0f, 1.0f, 1.0f, 1.0f,  0.0f, 0.0f },
-    { 0.0f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f, 1.0f,  1.0f, 1.0f },
-    { 0.0f, -0.5f, -0.5f,  1.0f, 1.0f, 1.0f, 1.0f,  0.0f, 1.0f },
+inline const uint32 Plane_indices[] =
+{
+    0, 1, 2, 0, 2, 3,
 };

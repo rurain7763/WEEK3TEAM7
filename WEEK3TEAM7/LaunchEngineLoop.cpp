@@ -86,6 +86,8 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 	mFontManager = new FFontManager();
 	InitAssetManager();
 
+	mComponentVisualizerModule.RegisterVisualizer(USpotLightComponent::GetClass(), MakeShared<FSpotLightComponentVisualizer>());
+
 	mSceneManager->NewScene();
 
 	//test code
@@ -104,22 +106,22 @@ void FEngineLoop::InitAssetManager()
 	URenderer* renderer = mGraphicsManager->GetRenderer();
 	
 	// Register built-in asset types
-	TSharedPtr<FStaticMeshAsset> cubeAsset = MakeShared<FStaticMeshAsset>(FName("CubeMesh"), *renderer, Cube_vertices, sizeof(Cube_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> cubeAsset = MakeShared<FStaticMeshAsset>(FName("CubeMesh"), *renderer, Cube_vertices, sizeof(Cube_vertices) / sizeof(FVertexSimple), Cube_indices, sizeof(Cube_indices) / sizeof(uint32));
 	mAssetManager->RegisterAsset(cubeAsset);
 
-	TSharedPtr<FStaticMeshAsset> sphereAsset = MakeShared<FStaticMeshAsset>(FName("SphereMesh"), *renderer, Sphere_vertices, sizeof(Sphere_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> sphereAsset = MakeShared<FStaticMeshAsset>(FName("SphereMesh"), *renderer, Sphere_vertices, sizeof(Sphere_vertices) / sizeof(FVertexSimple), Sphere_indices, sizeof(Sphere_indices) / sizeof(uint32));
 	mAssetManager->RegisterAsset(sphereAsset);
 
-	TSharedPtr<FStaticMeshAsset> circleAsset = MakeShared<FStaticMeshAsset>(FName("CircleMesh"), *renderer, Circle_vertices, sizeof(Circle_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> circleAsset = MakeShared<FStaticMeshAsset>(FName("CircleMesh"), *renderer, Circle_vertices, sizeof(Circle_vertices) / sizeof(FVertexSimple), Circle_indices, sizeof(Circle_indices) / sizeof(uint32));
 	mAssetManager->RegisterAsset(circleAsset);
 
-	TSharedPtr<FStaticMeshAsset> triangleAsset = MakeShared<FStaticMeshAsset>(FName("TriangleMesh"), *renderer, Triangle_vertices, sizeof(Triangle_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> triangleAsset = MakeShared<FStaticMeshAsset>(FName("TriangleMesh"), *renderer, Triangle_vertices, sizeof(Triangle_vertices) / sizeof(FVertexSimple), Triangle_indices, sizeof(Triangle_indices) / sizeof(uint32));
 	mAssetManager->RegisterAsset(triangleAsset);
 
-	TSharedPtr<FStaticMeshAsset> gizmoArrowAsset = MakeShared<FStaticMeshAsset>(FName("GizmoArrowMesh"), *renderer, GizmoArrow_vertices, sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> gizmoArrowAsset = MakeShared<FStaticMeshAsset>(FName("GizmoArrowMesh"), *renderer, GizmoArrow_vertices, sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple), GizmoArrow_indices, sizeof(GizmoArrow_indices) / sizeof(uint32));
 	mAssetManager->RegisterAsset(gizmoArrowAsset);
 
-	TSharedPtr<FStaticMeshAsset> PlaneAsset = MakeShared<FStaticMeshAsset>(FName("PlaneMesh"), *renderer, Plane_vertices, sizeof(Plane_vertices) / sizeof(FVertexSimple));
+	TSharedPtr<FStaticMeshAsset> PlaneAsset = MakeShared<FStaticMeshAsset>(FName("PlaneMesh"), *renderer, Plane_vertices, sizeof(Plane_vertices) / sizeof(FVertexSimple), Plane_indices, sizeof(Plane_indices) / sizeof(uint32));
 	mAssetManager->RegisterAsset(PlaneAsset);
 
 	TSharedPtr<FTexture2DAssetLoader> TextureLoader = MakeShared<FTexture2DAssetLoader>(*renderer);
@@ -194,16 +196,17 @@ void FEngineLoop::Tick(bool bPumpMessages)
 		if (SelectedActor)
 		{
 			FTransform Transform = SelectedActor->GetTransform();
-			USceneComponent* RootComponent = SelectedActor->GetRootComponent();
 
-			UPrimitiveComponent* PrimitiveComponent = RootComponent->Cast<UPrimitiveComponent>();
-			if (PrimitiveComponent)
+			for (UActorComponent* Component : SelectedActor->GetComponents())
 			{
-				// 선택된 액터의 AABB를 화면에 표시
-				FMatrix WorldMatrix = Transform.MakeMatrix();
-				const FAABB& AABB = PrimitiveComponent->GetMesh()->GetLocalBoundingBox().ToWorld(WorldMatrix);
+				UPrimitiveComponent* PrimitiveComponent = Component->Cast<UPrimitiveComponent>();
+				if (PrimitiveComponent)
+				{
+					// 선택된 액터의 AABB를 화면에 표시
+					FMatrix WorldMatrix = Transform.MakeMatrix();
+					const FAABB& AABB = PrimitiveComponent->GetMesh()->GetLocalBoundingBox().ToWorld(WorldMatrix);
 
-				AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End)
+					AABB.ForEachCornerLines([&RenderCollector](const FVector& Start, const FVector& End)
 					{
 						FVector4 WorldStart = FVector4(Start, 1.f);
 						FVector4 WorldEnd = FVector4(End, 1.f);
@@ -212,10 +215,18 @@ void FEngineLoop::Tick(bool bPumpMessages)
 						LineInfo.Start = WorldStart.ToVec3();
 						LineInfo.End = WorldEnd.ToVec3();
 						LineInfo.Color = FVector4(1.f, 0.f, 0.f, 1.f); // 빨간색
-						LineInfo.Thickness = 0.01f;
+						LineInfo.Thickness = 5.0f;
 
 						RenderCollector.LineInfos.Add(LineInfo);
 					});
+				}
+
+				// 선택된 액터의 컴포넌트 시각화
+				FComponentVisualizer* Visualizer = mComponentVisualizerModule.FindVisualizer(Component->GetRuntimeClass());
+				if (Visualizer)
+				{
+					Visualizer->VisualizeComponent(Component, RenderCollector);
+				}
 			}
 		}
 

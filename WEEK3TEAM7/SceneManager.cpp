@@ -219,6 +219,9 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 			{
 				NewActor = FObjectFactory::ConstructObject<ASpotLight>();
 
+				USpotLightComponent* SpotLightComponent = FObjectFactory::ConstructObject<USpotLightComponent>(FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1));
+				NewActor->AddRootSceneComponent(SpotLightComponent);
+
 				TSharedPtr<FTexture2DAsset> SpotLightTexture = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(FName("SpotLightIcon"), true);
 
 				UPlaneComponent* PlaneComponent = FObjectFactory::ConstructObject<UPlaneComponent>(FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1));
@@ -227,7 +230,7 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 				PlaneComponent->SetTexture(SpotLightTexture);
 				PlaneComponent->SetDepthState(true, true);
 
-				NewActor->AddRootSceneComponent(PlaneComponent);
+				NewActor->AddComponent(PlaneComponent);
 			}
 			else
 			{

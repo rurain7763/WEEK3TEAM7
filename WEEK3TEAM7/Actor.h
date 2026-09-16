@@ -25,6 +25,7 @@ public:
 	void AddRootSceneComponent(USceneComponent* sceneComponent);
 	USceneComponent* GetRootComponent() const;
 	bool RemoveComponent(uint32 componentUUID);
+	inline const TArray<UActorComponent*>& GetComponents() const { return mComponents; }
 
 	FTransform GetTransform() const;
 

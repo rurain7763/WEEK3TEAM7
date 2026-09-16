@@ -20,6 +20,11 @@ public:
 
 	void Tick(float DeltaTime) override
 	{
+		// NOTE: SpotLightComponent의 위치와 회전을 부모 액터에 맞춘다. 현재 Hierarchy가 없으므로 부모 액터의 위치와 회전만 가져와서 적용한다.
+		FTransform ParentTransform = mOwner->GetTransform();
+		SetRelativeLocation(ParentTransform.Location);
+		SetRelativeRotation(ParentTransform.Rotation);
+
 		if (mBillboardCamera && mbBillboard)
 		{
 			FTransform PivotTransform = GetTransformMatrix();
@@ -53,6 +58,30 @@ private:
 	bool mEnableDepthWrite = true;
 };
 
+class USpotLightComponent : public USceneComponent
+{
+	REFLECT_CLASS(USpotLightComponent, USceneComponent)
+
+public:
+	void Tick(float DeltaTime) override
+	{
+		// NOTE: SpotLightComponent의 위치와 회전을 부모 액터에 맞춘다. 현재 Hierarchy가 없으므로 부모 액터의 위치와 회전만 가져와서 적용한다.
+		FTransform ParentTransform = mOwner->GetTransform();
+		SetRelativeLocation(ParentTransform.Location);
+		SetRelativeRotation(ParentTransform.Rotation);
+		SetRelativeScale3D(ParentTransform.Scale);
+	}
+
+	inline float GetRange() const { return Range; }
+	inline float GetInnerConeAngle() const { return mInnerConeAngle; }
+	inline float GetOuterConeAngle() const { return mOuterConeAngle; }
+
+private:
+	float Range = 5.0f;
+	float mInnerConeAngle = 30.0f;
+	float mOuterConeAngle = 45.0f;
+};
+
 class ASpotLight : public AActor
 {
 	REFLECT_CLASS(ASpotLight, AActor)
@@ -64,12 +93,10 @@ public:
 
 	void SerializeClass(json::JSON& outJson) const override
 	{
-
 	}
 
 	void DeserializeClass(const json::JSON& inJson) override
 	{
-
 	}
 };
 

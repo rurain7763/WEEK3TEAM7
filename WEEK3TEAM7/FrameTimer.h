@@ -16,6 +16,7 @@ public:
 
 		QueryPerformanceCounter(&StartTime);
 	}
+
 	void EndFrame()
 	{	
 		do

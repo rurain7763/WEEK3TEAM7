@@ -18,7 +18,6 @@
 #include "EngineMathLibrary.h"
 #include "PrimitiveComponent.h"
 #include "RayCast.h"
-#include "SceneManager.h"
 
 FEditorViewportClient::FEditorViewportClient(URenderer& InRenderer)
 	: mCamera(FTransform({ -2.0f, 1.0f, 1.0f }, { 0, 30, 0 }, { 1, 1, 1 }))

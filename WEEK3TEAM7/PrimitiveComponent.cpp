@@ -20,33 +20,45 @@
 
 // 정점 배열이 보이는 스코프라 sizeof 로 개수가 나온다.
 // 포인터로 받으면 배열 크기 정보가 사라지므로 여기서 개수를 같이 넘긴다.
-static bool GetPrimitiveMesh(EPrimitive ePrimitive, const FVertexSimple*& OutVertices, uint32& OutCount)
+static bool GetPrimitiveMesh(EPrimitive ePrimitive, const FVertexSimple*& OutVertices, uint32& OutCount, const uint32*& OutIndices, uint32& OutIndexCount)
 {
 	switch (ePrimitive)
 	{
 	case EPrimitive::EP_Cube:
 		OutVertices = Cube_vertices;
 		OutCount = static_cast<uint32>(sizeof(Cube_vertices) / sizeof(FVertexSimple));
+		OutIndices = Cube_indices;
+		OutIndexCount = static_cast<uint32>(sizeof(Cube_indices) / sizeof(uint32));
 		return true;
 	case EPrimitive::EP_Sphere:
 		OutVertices = Sphere_vertices;
 		OutCount = static_cast<uint32>(sizeof(Sphere_vertices) / sizeof(FVertexSimple));
+		OutIndices = Sphere_indices;
+		OutIndexCount = static_cast<uint32>(sizeof(Sphere_indices) / sizeof(uint32));
 		return true;
 	case EPrimitive::EP_Triangle:
 		OutVertices = Triangle_vertices;
 		OutCount = static_cast<uint32>(sizeof(Triangle_vertices) / sizeof(FVertexSimple));
+		OutIndices = Triangle_indices;
+		OutIndexCount = static_cast<uint32>(sizeof(Triangle_indices) / sizeof(uint32));
 		return true;
 	case EPrimitive::EP_GizmoArrow:
 		OutVertices = GizmoArrow_vertices;
 		OutCount = static_cast<uint32>(sizeof(GizmoArrow_vertices) / sizeof(FVertexSimple));
+		OutIndices = GizmoArrow_indices;
+		OutIndexCount = static_cast<uint32>(sizeof(GizmoArrow_indices) / sizeof(uint32));
 		return true;
 	case EPrimitive::EP_Circle:
 		OutVertices = Circle_vertices;
 		OutCount = static_cast<uint32>(sizeof(Circle_vertices) / sizeof(FVertexSimple));
+		OutIndices = Circle_indices;
+		OutIndexCount = static_cast<uint32>(sizeof(Circle_indices) / sizeof(uint32));
 		return true;
 	case EPrimitive::EP_Plane:
 		OutVertices = Plane_vertices;
 		OutCount = static_cast<uint32>(sizeof(Plane_vertices) / sizeof(FVertexSimple));
+		OutIndices = Plane_indices;
+		OutIndexCount = static_cast<uint32>(sizeof(Plane_indices) / sizeof(uint32));
 		return true;
 	}
 
@@ -150,7 +162,9 @@ bool UPrimitiveComponent::RayCastComponent(const FPickingRay& PickingRay, float&
 	// 메시 충돌체를 이용한 광선-삼각형 충돌 판정
 	const FVertexSimple* vertices = nullptr;
 	uint32 length = 0;
-	if (!GetPrimitiveMesh(mePrimitive, vertices, length))
+	const uint32* indices = nullptr;
+	uint32 indexCount = 0;
+	if (!GetPrimitiveMesh(mePrimitive, vertices, length, indices, indexCount))
 	{
 		return false;
 	}
@@ -169,11 +183,11 @@ bool UPrimitiveComponent::RayCastComponent(const FPickingRay& PickingRay, float&
 	float NearestT = FLT_MAX;
 
 	// 삼각형 리스트라 정점 3개씩 묶인다
-	for (uint32 i = 0; i + 2 < length; i += 3)
+	for (int32 i = 0; i < indexCount; i += 3)
 	{
-		const FVector V0 = vertices[i].GetPosition();
-		const FVector V1 = vertices[i + 1].GetPosition();
-		const FVector V2 = vertices[i + 2].GetPosition();
+		const FVector V0 = vertices[indices[i]].GetPosition();
+		const FVector V1 = vertices[indices[i + 1]].GetPosition();
+		const FVector V2 = vertices[indices[i + 2]].GetPosition();
 
 		float OutT, OutU, OutV;
 		if (RayIntersectsTriangle(LocalNear, LocalFar, V0, V1, V2, OutT, OutU, OutV) && OutT < NearestT)

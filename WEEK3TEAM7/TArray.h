@@ -49,6 +49,9 @@ public:
 	void RemoveAtSwap(uint32 index);
 	void RemoveLast();
 
+	inline const T* Data() const { return mDatas.data(); }
+	inline T* Data() { return mDatas.data(); }
+
 	/*
 	int32 Find(const ElementType& Item) const;
 	template <typename Predicate>

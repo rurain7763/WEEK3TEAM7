@@ -9,6 +9,13 @@
 #include "RenderInfo.h"
 #include "FRenderPipeline.h"
 
+struct FCameraConstants
+{
+	FMatrix ViewProjectionMatrix;
+	FVector2 ViewportSize;
+	float Padding[2];
+};
+
 struct FConstants
 {
 	FMatrix Matrix;
@@ -16,15 +23,6 @@ struct FConstants
 	int32 UseVertexColor;
 	int32 HasTexture;
 	int32 Padding[2];
-};
-
-struct FLineConstants
-{
-	FVector4 Color;
-	FVector3 Start;
-	float Thickness;
-	FVector3 End;
-	float Padding;
 };
 
 struct FLine2DConstants
@@ -216,6 +214,29 @@ struct FDepthStencil
 	UINT Height;
 };
 
+struct FStructuredBuffer
+{
+	ID3D11DeviceContext* DeviceContext;
+
+	Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer;
+	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> SRV;
+	UINT ElementSize;
+	UINT ElementCount;
+
+	void UpdateStructuredBuffer(const void* Data, uint32 DataCount)
+	{
+		D3D11_BOX Box = {};
+		Box.left = 0;
+		Box.right = DataCount * ElementSize;
+		Box.top = 0;
+		Box.bottom = 1;
+		Box.front = 0;
+		Box.back = 1;
+
+		DeviceContext->UpdateSubresource(Buffer.Get(), 0, &Box, Data, 0, 0);
+	}
+};
+
 class URenderer
 {
 public:
@@ -235,10 +256,10 @@ public:
 #endif
 
 	template <typename T>
-	Microsoft::WRL::ComPtr<ID3D11Buffer> CreateVertexBuffer(T* Vertices, UINT ByteWidth)
+	Microsoft::WRL::ComPtr<ID3D11Buffer> CreateVertexBuffer(T* Vertices, UINT Count)
 	{
 		D3D11_BUFFER_DESC VertexBufferDesc = {};
-		VertexBufferDesc.ByteWidth = ByteWidth;
+		VertexBufferDesc.ByteWidth = sizeof(T) * Count;
 		VertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
 		VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
@@ -250,8 +271,39 @@ public:
 		return VertexBuffer;
 	}
 
+	Microsoft::WRL::ComPtr<ID3D11Buffer> CreateIndexBuffer(const uint32* Indices, UINT Count);
+
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> CreateTexture2D(const D3D11_TEXTURE2D_DESC& Desc, const void* InitialData = nullptr);
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> CreateShaderResourceView(Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture, const D3D11_SHADER_RESOURCE_VIEW_DESC* Desc = nullptr);
+
+	template <typename T>
+	TSharedPtr<FStructuredBuffer> CreateStructuredBuffer(uint32 ElementCount)
+	{
+		TSharedPtr<FStructuredBuffer> StructuredBuffer = MakeShared<FStructuredBuffer>();
+		StructuredBuffer->DeviceContext = DeviceContext;
+
+		D3D11_BUFFER_DESC StructuredBufferDesc = {};
+		StructuredBufferDesc.ByteWidth = sizeof(T) * ElementCount;
+		StructuredBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		StructuredBufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		StructuredBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+		StructuredBufferDesc.StructureByteStride = sizeof(T);
+
+		Device->CreateBuffer(&StructuredBufferDesc, nullptr, StructuredBuffer->Buffer.GetAddressOf());
+
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {};
+		SRVDesc.Format = DXGI_FORMAT_UNKNOWN;
+		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+		SRVDesc.Buffer.FirstElement = 0;
+		SRVDesc.Buffer.NumElements = ElementCount;
+
+		Device->CreateShaderResourceView(StructuredBuffer->Buffer.Get(), &SRVDesc, StructuredBuffer->SRV.GetAddressOf());
+
+		StructuredBuffer->ElementSize = sizeof(T);
+		StructuredBuffer->ElementCount = ElementCount;
+
+		return StructuredBuffer;
+	}
 
 	TSharedPtr<FRenderTarget2D> CreateRenderTarget2D(uint32 Width, uint32 Height, DXGI_FORMAT Format);
 	TSharedPtr<FDepthStencil> CreateDepthStencil(uint32 Width, uint32 Height);
@@ -273,13 +325,15 @@ public:
 	void BindFrameBuffer();
 	void BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget, const TSharedPtr<FDepthStencil>& DepthStencil, bool bClear = true);
 
-	void RenderLine(const FRenderLineInfo& Info) const;
+	void RenderLines(const TArray<FRenderLineInfo>& Lines) const;
 
 	void RenderQuad(const FRenderQuadInfo& Info) const;
 
 	void RenderPrimitive(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices) const;
 	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model) const;
 	void RenderPrimitive(Microsoft::WRL::ComPtr<ID3D11Buffer> Buffer, UINT NumVertices, const FMatrix& Model, const FVector4& Color) const;
+	void RenderPrimitiveIndexed(const TSharedPtr<FRenderPipeline>& Pipeline, Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer, Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer, UINT NumIndices) const;
+	void RenderPrimitiveIndexed(Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer, Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer, UINT NumIndices, const FMatrix& Model) const;
 
 	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f) const;
 	void RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius = 1.0f) const;
@@ -323,6 +377,8 @@ private:
 
 	ID3D11Texture2D* DepthStencilBuffer = nullptr;			// 실제 깊이값이 저장될 메모리
 	ID3D11DepthStencilView* DepthStencilView = nullptr;		// 그 메모리를 "출력 대상"으로 보는 뷰
+
+	TSharedPtr<FStructuredBuffer> LineStructuredBuffer;
 
 	TSharedPtr<FRenderPipeline> LinePipeline;
 	TSharedPtr<FRenderPipeline> PrimitivePipeline;

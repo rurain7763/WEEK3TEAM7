@@ -85,8 +85,6 @@ void AActor::DeserializeClass(const json::JSON& inJson)
 		}
 		mRootComponent = static_cast<USceneComponent*>(mComponents[rootComponentIndex]);
 	}
-
-
 }
 
 void AActor::AddComponent(UActorComponent* actorComponent)
