@@ -1,6 +1,7 @@
 ﻿
 #define REFLECT_CLASS(className, superClassName)									\
 public:																				\
+	using Super = superClassName;													\
 	static const FClassInfo* GetClass()												\
 	{																				\
 		static FClassInfo classInstance = FClassInfo(								\
