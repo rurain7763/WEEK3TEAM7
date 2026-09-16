@@ -228,6 +228,7 @@ public:
 			QuadInfo.Color = mColor;
 			QuadInfo.TextureSRV = mFontAtlasAsset->GetSRV();
 			QuadInfo.SubUV = Glyph.SubUV;
+			QuadInfo.BlendMode = ERenderBlendMode::Transparent;
 			QuadInfo.EnableDepthTest = mEnableDepthTest;
 			QuadInfo.EnableDepthWrite = mEnableDepthWrite;
 
