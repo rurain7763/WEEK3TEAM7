@@ -349,6 +349,29 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 				// 파일 로드가 실행된 뒤에만 카메라를 초기화한다.
 				guiReference.ViewportClient->Reset();
 
+				// 여기부터 런타임 카메라 재연결
+				FCamera& Camera =
+					guiReference.ViewportClient->GetCamera();
+
+				for (AActor* Actor :
+					mCurrentWorld->GetActors())
+				{
+					if (ASpotLight* SpotLight =
+						Actor->Cast<ASpotLight>())
+					{
+						SpotLight->RestoreRuntimeCamera(Camera);
+					}
+
+					for (UActorComponent* Component :
+						Actor->GetComponents())
+					{
+						if (UAtlasAnimationComponent* Atlas = Component->Cast<UAtlasAnimationComponent>())
+						{
+							Atlas->RestoreRuntimeCamera(Camera);
+						}
+					}
+				}
+
 				UE_LOG(
 					"Scene loaded: %s",
 					selectedPath->string().c_str());

@@ -14,6 +14,22 @@ public:
 	using UPrimitiveComponent::Initialize;
 	void Initialize(EPrimitive PrimitiveType, const TSharedPtr<FSpriteAtlasAsset>& textureAsset);
 
+	void DeserializeClass(const json::JSON& inJson) override
+	{
+		Super::DeserializeClass(inJson);
+
+		RestoreAtlasState();
+
+
+		SetBillboard(true);
+		SetDepthState(true, false);
+
+		Play();
+	}
+	void RestoreRuntimeCamera(FCamera& Camera)
+	{
+		SetBillboardCamera(Camera);
+	}
 	void SetAtlas(const TSharedPtr<FSpriteAtlasAsset>& InAtlas);
 	inline const TSharedPtr<FSpriteAtlasAsset>& GetAtlas() const { return Asset; }
 
@@ -33,7 +49,7 @@ public:
 
 	virtual void Tick(float deltaTime) override;
 private:
-
+	void RestoreAtlasState();
 	TSharedPtr<FSpriteAtlasAsset> Asset;
 	bool bPlaying = false;
 	bool bLooping = true;

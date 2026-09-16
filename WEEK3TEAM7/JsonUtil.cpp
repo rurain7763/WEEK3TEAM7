@@ -34,6 +34,8 @@ json::JSON EPrimitiveToJson(const EPrimitive& Primitive)
 		return json::JSON("GizmoArrow");
 	case EPrimitive::EP_Circle:
 		return json::JSON("Circle");
+	case EPrimitive::EP_Plane:
+		return json::JSON("Plane");
 	default:
 		throw std::runtime_error("Unknown EPrimitive value");
 	}
@@ -85,6 +87,10 @@ EPrimitive EPrimitiveFromJson(const json::JSON& json)
 	else if (primitiveStr == "Circle")
 	{
 		return EPrimitive::EP_Circle;
+	}
+	else if (primitiveStr == "Plane")
+	{
+		return EPrimitive::EP_Plane;
 	}
 	else
 	{

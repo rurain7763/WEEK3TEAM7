@@ -113,6 +113,7 @@ void UPrimitiveComponent::SerializeClass(json::JSON& outJson) const
 {
 	USceneComponent::SerializeClass(outJson);
 	outJson["Properties"]["mePrimitiveType"] = EPrimitiveToJson(mePrimitive);
+	outJson["Properties"]["TextureAssetName"] = mTextureAsset ? mTextureAsset->GetAssetName().ToString().CStr() : "";
 }
 
 void UPrimitiveComponent::DeserializeClass(const json::JSON& inJson)
@@ -126,7 +127,60 @@ void UPrimitiveComponent::DeserializeClass(const json::JSON& inJson)
 	}
 
 	mePrimitive = EPrimitiveFromJson(propertiesJson.at("mePrimitiveType"));
+
+	RestoreMeshAsset();
+
+
+	if (propertiesJson.hasKey("TextureAssetName") && propertiesJson.at("TextureAssetName").JSONType()
+		== json::JSON::Class::String)
+	{
+		const FString AssetName = propertiesJson.at("TextureAssetName").ToString();
+
+		if (AssetName.Len() > 0)
+		{
+			mTextureAsset = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(FName(AssetName), true);
+		}
+		else
+		{
+			mTextureAsset = nullptr;
+		}
+	}
 }
+
+void UPrimitiveComponent::RestoreMeshAsset()
+{
+	FName MeshAssetName;
+
+	switch (mePrimitive)
+	{
+	case EPrimitive::EP_Sphere:
+		MeshAssetName = "SphereMesh";
+		break;
+
+	case EPrimitive::EP_Cube:
+		MeshAssetName = "CubeMesh";
+		break;
+
+	case EPrimitive::EP_Triangle:
+		MeshAssetName = "TriangleMesh";
+		break;
+
+	case EPrimitive::EP_GizmoArrow:
+		MeshAssetName = "GizmoArrowMesh";
+		break;
+
+	case EPrimitive::EP_Circle:
+		MeshAssetName = "CircleMesh";
+		break;
+
+	case EPrimitive::EP_Plane:
+		MeshAssetName = "PlaneMesh";
+		break;
+	}
+
+	mMeshAsset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(MeshAssetName, true);
+}
+
 
 void UPrimitiveComponent::Render(FRenderCollector& RenderCollector)
 {
@@ -208,6 +262,7 @@ bool UPrimitiveComponent::RayCastComponent(const FPickingRay& PickingRay, float&
 
 	return bHit;
 }
+
 
 /*
 void UPrimitiveComponent::Render(FStruct)

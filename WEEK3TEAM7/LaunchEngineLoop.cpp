@@ -88,6 +88,12 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 
 	mComponentVisualizerManager = new FComponentVisualizerManager();
 
+	char Value[64] = {};
+	GetPrivateProfileStringA("Grid", "Gap", "", Value, sizeof(Value), ".\\editor.ini");
+	int32 GridGap = 1;
+	sscanf_s(Value, "%d", &	GridGap);
+	mGraphicsManager->SetGridGap(GridGap);
+
 	mSceneManager->NewScene();
 
 	//test code
@@ -292,6 +298,13 @@ void FEngineLoop::End()
 	if (!WritePrivateProfileStringA("Camera", "Sensitivity", Value.c_str(), ".\\editor.ini"))
 	{
 		UE_LOG_ERROR("Failed to save camera sensitivity to editor.ini");
+	}
+
+	const std::string ValueGrid = std::format("{:6d}", mGraphicsManager->GetGridGap());
+
+	if (!WritePrivateProfileStringA("Grid", "Gap", ValueGrid.c_str(), ".\\editor.ini"))
+	{
+		UE_LOG_ERROR("Failed to save grid gap to editor.ini");
 	}
 	mSceneManager->DeleteScene();
 

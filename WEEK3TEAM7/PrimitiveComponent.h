@@ -45,6 +45,9 @@ public:
 	inline EPrimitive GetPrimitiveType() const { return mePrimitive; }
 
 protected:
+	void RestoreMeshAsset();
+
+protected:
 	//GraphicsManager* mGraphicsManager;
 	EPrimitive mePrimitive;
 	TSharedPtr<FStaticMeshAsset> mMeshAsset;

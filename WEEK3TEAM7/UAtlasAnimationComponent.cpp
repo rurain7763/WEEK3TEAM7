@@ -15,6 +15,34 @@ void UAtlasAnimationComponent::Initialize(EPrimitive PrimitiveType, const TShare
 	mBlendMode = ERenderBlendMode::Additive;
 }
 
+void UAtlasAnimationComponent::RestoreAtlasState()
+{
+	Asset = nullptr;
+
+	if (!mTextureAsset)
+	{
+		return;
+	}
+
+	if (mTextureAsset->GetAssetType() != EAssetType::SpriteAtlas)
+	{
+		return;
+	}
+
+	Asset = std::static_pointer_cast<FSpriteAtlasAsset>(mTextureAsset);
+
+	mBlendMode = ERenderBlendMode::Additive;
+
+	Frame = 0;
+	FrameAccumulator = 0.f;
+
+	if (Asset->GetFrameCount() > 0)
+	{
+		mSubUV = Asset->GetFrameSubUV(Frame);
+	}
+}
+
+
 void UAtlasAnimationComponent::SetAtlas(const TSharedPtr<FSpriteAtlasAsset>& InAtlas)
 {
 	Asset = InAtlas;
