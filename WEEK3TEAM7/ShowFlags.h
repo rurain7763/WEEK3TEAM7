@@ -25,7 +25,6 @@ struct FShowFlagInfo
 
 inline constexpr FShowFlagInfo GShowFlagInfos[] =
 {
-	{ EShowFlag::WorldAxis, "World axis" },
 	{ EShowFlag::UUIDText,  "UUID"       },
 	{ EShowFlag::Grid,      "Grid"      },
 	{ EShowFlag::Primitive, "Primitive" }
