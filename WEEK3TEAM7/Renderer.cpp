@@ -69,12 +69,13 @@ void URenderer::Create(HWND hWindow)
 
 	WorldAxisPipeline = CreateRenderPipeline();
 	WorldAxisPipeline->SetRasterRizerState(D3D11_CULL_NONE);
+	WorldAxisPipeline->SetBlendState(ERenderBlendMode::Transparent);
 	WorldAxisPipeline->SetShader("Assets/Shaders/WorldAxis.hlsl");
 	WorldAxisPipeline->AddConstantBuffer<FWorldAxisConstants>();
 
 	WorldGridPipeline = CreateRenderPipeline();
 	WorldGridPipeline->SetRasterRizerState(D3D11_CULL_NONE);
-	WorldGridPipeline->SetDepthStencilState(true, false);
+	WorldGridPipeline->SetDepthStencilState(true, true);
 	WorldGridPipeline->SetBlendState(ERenderBlendMode::Transparent);
 	WorldGridPipeline->SetShader("Assets/Shaders/WorldGrid.hlsl");
 	WorldGridPipeline->AddConstantBuffer<FWorldGridConstants>();
@@ -631,7 +632,12 @@ void URenderer::RenderTriangle2D(const FVector2& Center, const FVector4& Color, 
 
 void URenderer::RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness) const
 {
-	WorldAxisPipeline->UpdateConstantBuffer(0, FWorldAxisConstants{ View, Projection, Color, Axis, Thickness });
+	// Use the scene viewport currently bound, which may differ from the window size.
+	D3D11_VIEWPORT Viewport = {};
+	UINT ViewportCount = 1;
+	DeviceContext->RSGetViewports(&ViewportCount, &Viewport);
+	WorldAxisPipeline->UpdateConstantBuffer(0, FWorldAxisConstants{
+		View, Projection, Color, Axis, Thickness, FVector2(Viewport.Width, Viewport.Height) });
 
 	BindPipeline(WorldAxisPipeline);
 
@@ -640,9 +646,9 @@ void URenderer::RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, 
 	DeviceContext->Draw(6, 0);
 }
 
-void URenderer::RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation) const
+void URenderer::RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation, float GridGap) const
 {
-	WorldGridPipeline->UpdateConstantBuffer(0, FWorldGridConstants{ ViewProjection, CameraLocation });
+	WorldGridPipeline->UpdateConstantBuffer(0, FWorldGridConstants{ ViewProjection, CameraLocation, GridGap });
 
 	BindPipeline(WorldGridPipeline);
 

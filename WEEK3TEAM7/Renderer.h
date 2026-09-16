@@ -60,13 +60,15 @@ struct FWorldAxisConstants
 	FVector4 Color;
 	FVector Axis;
 	float Thickness;
+	FVector2 ViewportSize;
+	float Padding[2] = {};
 };
 
 struct FWorldGridConstants
 {
 	FMatrix ViewProjection;
 	FVector CameraLocation;
-	float Padding;
+	float GridGap = 1.0f;
 };
 
 struct FQuadConstants
@@ -401,8 +403,9 @@ public:
 	void RenderLine2D(const FVector2& Start, const FVector2& End, const FVector4& Color, float Thickness = 1.0f) const;
 	void RenderCircle2D(const FVector2& Center, const FVector4& Color, float Radius = 1.0f) const;
 	void RenderTriangle2D(const FVector2& Center, const FVector4& Color, float Size = 1.0f, float Rotation = 0.0f) const;
-	void RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness = 1.0f) const;
-	void RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation) const;
+	// Thickness is the full world-space width, matching the grid's 0.001 half-width.
+	void RenderWorldAxis(const FMatrix& View, const FMatrix& Projection, const FVector4& Color, const FVector& Axis, float Thickness = 0.002f) const;
+	void RenderWorldGrid(const FMatrix& ViewProjection, const FVector& CameraLocation, float GridGap) const;
 
 	void SwapBuffer();
 

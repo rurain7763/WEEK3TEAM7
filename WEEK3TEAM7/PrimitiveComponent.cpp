@@ -17,6 +17,7 @@
 #include "GizmoArrow.h"
 #include "Circle.h"
 #include "Plane.h"
+#include "ShowFlags.h"
 
 // 정점 배열이 보이는 스코프라 sizeof 로 개수가 나온다.
 // 포인터로 받으면 배열 크기 정보가 사라지므로 여기서 개수를 같이 넘긴다.
@@ -129,7 +130,8 @@ void UPrimitiveComponent::DeserializeClass(const json::JSON& inJson)
 
 void UPrimitiveComponent::Render(FRenderCollector& RenderCollector)
 {
-	RenderCollector.RenderInfos.Add({ mMeshAsset, mTextureAsset, mePrimitive, GetTransformMatrix().MakeMatrix(),{ mOwner->UUID, mOwner->InternalIndex }, FVector4(0, 0, 0, 0) });
+	if (FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
+		RenderCollector.RenderInfos.Add({ mMeshAsset, mTextureAsset, mePrimitive, GetTransformMatrix().MakeMatrix(),{ mOwner->UUID, mOwner->InternalIndex }, FVector4(0, 0, 0, 0) });
 }
 
 void UPrimitiveComponent::GetRenderInfos(TArray<FRenderInfo>* outRenderInfos) const

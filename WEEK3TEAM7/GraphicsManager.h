@@ -77,6 +77,8 @@ public:
 	inline FRenderCollector& GetRenderCollector() { return mRenderCollector; }
 	inline TArray<FRenderInfo>& GetRenderInfos() { return mRenderCollector.RenderInfos; }
 
+	inline int32 GetGridGap() { return GridGap; }
+	void SetGridGap(int32 GridGap);
 private:
 	URenderer* mRenderer;
 	FMatrix mViewMatrix;
@@ -112,4 +114,6 @@ private:
 	TSharedPtr<FRenderPipeline> mMeshPipeline;
 
 	FRenderCollector mRenderCollector;
+
+	int32 GridGap = 1;
 };

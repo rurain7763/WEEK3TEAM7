@@ -402,6 +402,71 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 
 		ImGui::EndCombo();
 	}
+	{
+		static constexpr int32 GridGapValues[] = { 1, 5, 10, 50, 100, 500 };
+		static constexpr const char* GridGapLabels[] = { "(1)", "(5)", "(10)", "(50)", "(100)", "(500)" };
+		constexpr int StepCount = IM_ARRAYSIZE(GridGapValues);
+		const int32 GridGap = guiReference.GraphicsManager->GetGridGap();
+		int SelectedIndex = 0;
+		for (int i = 1; i < StepCount; ++i)
+		{
+			if (GridGap >= (GridGapValues[i - 1] + GridGapValues[i]) / 2.0f)
+			{
+				SelectedIndex = i;
+			}
+		}
+
+		ImGui::Text("Grid Gap: %d", GridGap);
+		const ImGuiStyle& Style = ImGui::GetStyle();
+		const float FontSize = ImGui::GetFontSize();
+		const float LabelWidth = ImGui::CalcTextSize("(500)").x;
+		const float Width = (std::max)(ImGui::GetContentRegionAvail().x,
+			(LabelWidth + Style.ItemInnerSpacing.x) * StepCount);
+		const float Padding = LabelWidth * 0.5f;
+		const ImVec2 Origin = ImGui::GetCursorScreenPos();
+		const float TrackLeft = Origin.x + Padding;
+		const float TrackWidth = Width - Padding * 2.0f;
+		const float TrackY = Origin.y + FontSize;
+		const float TrackHeight = FontSize * 0.3f;
+		const float LabelY = TrackY + TrackHeight + Style.ItemInnerSpacing.y;
+		ImGui::InvisibleButton("##GridGapSelector",
+			ImVec2(Width, LabelY + FontSize - Origin.y));
+		const bool bActive = ImGui::IsItemActive();
+		const bool bHovered = ImGui::IsItemHovered();
+		bool bChanged = false;
+		if (bActive && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+		{
+			// Snap to the closest displayed step, including when dragging past either end.
+			const float Position = std::clamp((io.MousePos.x - TrackLeft) / TrackWidth, 0.0f, 1.0f);
+			SelectedIndex = static_cast<int>(Position * (StepCount - 1) + 0.5f);
+			bChanged = true;
+		}
+		if (bChanged && GridGapValues[SelectedIndex] != GridGap)
+		{
+			guiReference.GraphicsManager->SetGridGap(GridGapValues[SelectedIndex]);
+		}
+
+		if (ImGui::IsItemVisible())
+		{
+			ImDrawList* DrawList = ImGui::GetWindowDrawList();
+			const ImU32 TrackColor = ImGui::GetColorU32(bActive ? ImGuiCol_FrameBgActive :
+				(bHovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg));
+			const ImU32 HandleColor = ImGui::GetColorU32(bActive ? ImGuiCol_SliderGrabActive : ImGuiCol_SliderGrab);
+			DrawList->AddRectFilled(ImVec2(TrackLeft, TrackY),
+				ImVec2(TrackLeft + TrackWidth, TrackY + TrackHeight), TrackColor, Style.FrameRounding);
+			for (int i = 0; i < StepCount; ++i)
+			{
+				const float X = TrackLeft + TrackWidth * i / (StepCount - 1);
+				const ImU32 LabelColor = ImGui::GetColorU32(i == SelectedIndex ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+				DrawList->AddLine(ImVec2(X, TrackY), ImVec2(X, TrackY + TrackHeight), LabelColor);
+				DrawList->AddText(ImVec2(X - ImGui::CalcTextSize(GridGapLabels[i]).x * 0.5f, LabelY),
+					LabelColor, GridGapLabels[i]);
+			}
+			const float HandleX = TrackLeft + TrackWidth * SelectedIndex / (StepCount - 1);
+			DrawList->AddTriangleFilled(ImVec2(HandleX - FontSize * 0.4f, Origin.y),
+				ImVec2(HandleX + FontSize * 0.4f, Origin.y), ImVec2(HandleX, TrackY + TrackHeight), HandleColor);
+		}
+	}
 
 	ImGui::Text("FOV     ");
 	ImGui::SameLine();

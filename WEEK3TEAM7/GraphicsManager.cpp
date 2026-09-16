@@ -49,7 +49,7 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 {
 	// Cache view and projection matrices for rendering
 	const float nearZ = 0.1f;
-	const float farZ = 100.0f;
+	const float farZ = 2000.0f;
 
 	float d = mCamera->mOrthoDistance;
 	
@@ -62,7 +62,7 @@ void FGraphicsManager::Prepare(const FCamera* mCamera, float viewportWidth, floa
 
 	//mViewProjectionMatrix = view * mCamera->GetProjectionMatrix(mAspect, mCamera->mFovDegree, nearZ, farZ);
 	mViewMatrix = view;
-	mProjectionMatrix = projection_u_p;
+	mProjectionMatrix = projection_u;
 	mViewProjectionMatrix = view * projection_u_p;
 
 	// 뷰 모드를 렌더러에 전달한다. BindPipeline이 드로우마다 이 값을 보고
@@ -134,8 +134,12 @@ void FGraphicsManager::Render()
 		mRenderer->RenderQuad(QuadInfo);
 	}
 
-	mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 2.f);
-	mRenderer->RenderWorldGrid(mViewUnifiedProjectionMatrix, mCameraLocation);
+	if (FShowFlags::Get().IsEnabled(EShowFlag::Grid))
+	{
+		// Match the grid's world-space half-width of 0.001.
+		mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 0.002f);
+		mRenderer->RenderWorldGrid(mViewUnifiedProjectionMatrix, mCameraLocation, GridGap);
+	}
 
 	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
 	{
@@ -357,4 +361,31 @@ void FGraphicsManager::UpdateProjectionTransition(float deltaTime)
 		mProjectionRatio = mProjectionTargetRatio;
 		mbProjectionTransitioning = false;
 	}
+}
+
+void FGraphicsManager::SetGridGap(int32 GridGap)
+{
+	if (GridGap > 75000)
+		GridGap = 100000;
+	else if (GridGap > 30000)
+		GridGap = 50000;
+	else if (GridGap > 7500)
+		GridGap = 10000;
+	else if (GridGap > 3000)
+		GridGap = 5000;
+	else if (GridGap > 750)
+		GridGap = 1000;
+	else if (GridGap > 300)
+		GridGap = 500;
+	else if (GridGap > 75)
+		GridGap = 100;
+	else if (GridGap > 30)
+		GridGap = 50;
+	else if (GridGap > 7)
+		GridGap = 10;
+	else if (GridGap > 3)
+		GridGap = 5;
+	else
+		GridGap = 1;
+	this->GridGap = GridGap;
 }

@@ -36,6 +36,11 @@ public:
 
 	void Render(FRenderCollector& RenderCollector) override
 	{
+		if (!FShowFlags::Get().IsEnabled(EShowFlag::Primitive))
+		{
+			return;
+		}
+
 		FTransform PivotTransform = GetTransformMatrix();
 
 		FRenderQuadInfo QuadInfo;
