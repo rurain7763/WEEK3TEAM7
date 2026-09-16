@@ -4,6 +4,7 @@
 #include "Rotator.h"
 #include "Vector.h"
 #include "enum.h"
+#include <utility>
 
 struct FMatrix { 
 	float M[4][4];
@@ -298,12 +299,69 @@ struct FMatrix {
 			V.x * M[0][2] + V.y * M[1][2] + V.z * M[2][2]);
 	}
 
+	// General 4x4 inverse, including perspective projection. Keep Inverse() as
+	// the affine fast path used by object transforms.
+	[[nodiscard]] FMatrix Inverse() const
+	{
+		const float m00 = M[0][0], m01 = M[0][1], m02 = M[0][2], m03 = M[0][3];
+		const float m10 = M[1][0], m11 = M[1][1], m12 = M[1][2], m13 = M[1][3];
+		const float m20 = M[2][0], m21 = M[2][1], m22 = M[2][2], m23 = M[2][3];
+		const float m30 = M[3][0], m31 = M[3][1], m32 = M[3][2], m33 = M[3][3];
+
+		// 위쪽 두 행(0,1)에서 뽑은 2x2 소행렬식 6개
+		const float S0 = m00 * m11 - m10 * m01;
+		const float S1 = m00 * m12 - m10 * m02;
+		const float S2 = m00 * m13 - m10 * m03;
+		const float S3 = m01 * m12 - m11 * m02;
+		const float S4 = m01 * m13 - m11 * m03;
+		const float S5 = m02 * m13 - m12 * m03;
+
+		// 아래쪽 두 행(2,3)에서 뽑은 2x2 소행렬식 6개
+		const float C5 = m22 * m33 - m32 * m23;
+		const float C4 = m21 * m33 - m31 * m23;
+		const float C3 = m21 * m32 - m31 * m22;
+		const float C2 = m20 * m33 - m30 * m23;
+		const float C1 = m20 * m32 - m30 * m22;
+		const float C0 = m20 * m31 - m30 * m21;
+
+		// 라플라스 전개: det = Σ (위 2x2) * (대응하는 아래 2x2)
+		const float Det = S0 * C5 - S1 * C4 + S2 * C3 + S3 * C2 - S4 * C1 + S5 * C0;
+		if (FMath::Abs(Det) < SMALL_NUMBER)
+		{
+			return FMatrix::Zero;
+		}
+		const float Inv = 1.0f / Det;
+
+		FMatrix R;
+		R.M[0][0] = (m11 * C5 - m12 * C4 + m13 * C3) * Inv;
+		R.M[0][1] = (-m01 * C5 + m02 * C4 - m03 * C3) * Inv;
+		R.M[0][2] = (m31 * S5 - m32 * S4 + m33 * S3) * Inv;
+		R.M[0][3] = (-m21 * S5 + m22 * S4 - m23 * S3) * Inv;
+
+		R.M[1][0] = (-m10 * C5 + m12 * C2 - m13 * C1) * Inv;
+		R.M[1][1] = (m00 * C5 - m02 * C2 + m03 * C1) * Inv;
+		R.M[1][2] = (-m30 * S5 + m32 * S2 - m33 * S1) * Inv;
+		R.M[1][3] = (m20 * S5 - m22 * S2 + m23 * S1) * Inv;
+
+		R.M[2][0] = (m10 * C4 - m11 * C2 + m13 * C0) * Inv;
+		R.M[2][1] = (-m00 * C4 + m01 * C2 - m03 * C0) * Inv;
+		R.M[2][2] = (m30 * S4 - m31 * S2 + m33 * S0) * Inv;
+		R.M[2][3] = (-m20 * S4 + m21 * S2 - m23 * S0) * Inv;
+
+		R.M[3][0] = (-m10 * C3 + m11 * C1 - m12 * C0) * Inv;
+		R.M[3][1] = (m00 * C3 - m01 * C1 + m02 * C0) * Inv;
+		R.M[3][2] = (-m30 * S3 + m31 * S1 - m32 * S0) * Inv;
+		R.M[3][3] = (m20 * S3 - m21 * S1 + m22 * S0) * Inv;
+
+		return R;
+	}
+
 	// 아핀 행렬(마지막 열이 0,0,0,1)의 역행렬.
 	// MakeMatrix() 결과가 항상 이 형태라 일반 4x4 역행렬이 필요 없다.
 	//   M = | A 0 |        M^-1 = | A^-1     0 |
 	//       | t 1 |               | -t*A^-1  1 |
 	// Transpose() 와 달리 비균등 스케일에도 동작한다.
-	[[nodiscard]] FMatrix Inverse() const
+	[[nodiscard]] FMatrix AffineInverse() const
 	{
 		const float C00 =  (M[1][1] * M[2][2] - M[1][2] * M[2][1]);
 		const float C01 = -(M[1][0] * M[2][2] - M[1][2] * M[2][0]);
@@ -338,7 +396,6 @@ struct FMatrix {
 
 		return R;
 	}
-
 
 	// end Struct Matrix
 };

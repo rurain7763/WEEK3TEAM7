@@ -236,7 +236,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 			}
 		}
 
-		ViewportClient->mGizmo.Update(mSceneManager);
+		ViewportClient->mGizmo.Update(mSceneManager, mGraphicsManager->GetViewProjectionMatrix());
 	}
 
 	//Render Threads

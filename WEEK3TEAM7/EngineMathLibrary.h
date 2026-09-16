@@ -94,6 +94,19 @@ inline FVector2 WorldToScreen(const FVector& WorldPos, const FMatrix& ViewProjec
 	return ScreenPos;
 }
 
+inline FVector ScreenToWorld(const FVector2& ScreenPos, const FMatrix& InverseViewProjection, float ScreenWidth, float ScreenHeight, float Depth = 1.0f)
+{
+	FVector2 NdcPos(
+		(ScreenPos.X / ScreenWidth) * 2.0f - 1.0f,
+		1.0f - (ScreenPos.Y / ScreenHeight) * 2.0f
+	);
+
+	FVector4 ClipSpacePos(NdcPos.X, NdcPos.Y, Depth, 1.0f);
+	FVector4 WorldSpacePos = ClipSpacePos * InverseViewProjection;
+
+	return FVector(WorldSpacePos.x / WorldSpacePos.w, WorldSpacePos.y / WorldSpacePos.w, WorldSpacePos.z / WorldSpacePos.w);
+}
+
 inline FMatrix ToMatrix(const FQuaternion& Q)
 {
 	float XX = Q.X * Q.X;

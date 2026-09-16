@@ -27,7 +27,7 @@ public:
     void SetOperation(EGIZMO_TYPE Operation);
     EGIZMO_TYPE GetOperation() const;
 
-    void Update(FSceneManager* SceneManager);
+    void Update(FSceneManager* SceneManager, const FMatrix& ViewProjection);
     void Render(FSceneManager* SceneManager, const FVector& CameraPosition, const FMatrix& ViewProjection);
     bool IsMouseOverHandle() const;
     bool IsDragging() const { return bIsSelected; }
@@ -53,6 +53,10 @@ private:
 
     TArray<FHandleSegment> HandleScreenSegments;
     FVector2 PrevMousePos;
+    FVector DragStartLocation;
+    FVector2 DragStartMousePosition;
+	float DragStartAxisParameter = 0.f;
+	FVector2 HandleScreenStart;
     FVector2 HandleScreenDirection;
     EAxisNumber HoveredAxis = EAxisNumber::None;
     EAxisNumber SelectedAxis = EAxisNumber::None;

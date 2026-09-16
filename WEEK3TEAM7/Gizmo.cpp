@@ -5,6 +5,7 @@
 #include "WindowApplication.h"
 #include "EngineMathLibrary.h"
 #include "SceneManager.h"
+#include <cmath>
 
 FGizmo::FGizmo(URenderer& InRenderer) 
 	: Renderer(InRenderer) 
@@ -49,38 +50,39 @@ bool FGizmo::IsMouseOverHandle() const
 	return bIsHoveredAxis; 
 }
 
-void FGizmo::Update(FSceneManager* SceneManager)
+void FGizmo::Update(FSceneManager* SceneManager, const FMatrix& ViewProjection)
 {
-	AActor* TargetActor = SceneManager->GetSelectedActor();
+    AActor* TargetActor = SceneManager->GetSelectedActor();
 
-    if (!TargetActor) 
-	{ 
-		Reset(); 
-		return; 
-	}
+    if (!TargetActor)
+    {
+        Reset();
+        return;
+    }
 
-    if (TargetUUID != TargetActor->UUID) 
-	{ 
-		Reset(); 
-		TargetUUID = TargetActor->UUID; 
-	}
+    if (TargetUUID != TargetActor->UUID)
+    {
+        Reset();
+        TargetUUID = TargetActor->UUID;
+    }
 
     const FInputState& Input = WindowApplication.Input;
-    
+
     FVector2 MousePosInScreen = Map(
         FVector2(Input.CursorX, Input.CursorY),
-        FVector2(SceneManager->GetViewportX(), SceneManager->GetViewportY()), 
-        FVector2(SceneManager->GetViewportX() + SceneManager->GetViewportWidth(), SceneManager->GetViewportY() + SceneManager->GetViewportHeight()), 
-        FVector2(0.f, 0.f), 
+        FVector2(SceneManager->GetViewportX(), SceneManager->GetViewportY()),
+        FVector2(SceneManager->GetViewportX() + SceneManager->GetViewportWidth(), SceneManager->GetViewportY() + SceneManager->GetViewportHeight()),
+        FVector2(0.f, 0.f),
         FVector2(Renderer.GetWidth(), Renderer.GetHeight())
     );
 
-	const bool bAllowMouse = SceneManager->IsViewportHovered();
+    const bool bAllowMouse = SceneManager->IsViewportHovered();
+    bool bDragStarted = false;
 
-    if (!Input.IsDown(VK_LBUTTON)) 
-	{ 
-		bIsSelected = false; SelectedAxis = EAxisNumber::None; 
-	}
+    if (!Input.IsDown(VK_LBUTTON))
+    {
+        bIsSelected = false; SelectedAxis = EAxisNumber::None;
+    }
 
     bIsHoveredAxis = false;
     HoveredAxis = EAxisNumber::None;
@@ -89,10 +91,10 @@ void FGizmo::Update(FSceneManager* SceneManager)
     {
         for (const FHandleSegment& Segment : HandleScreenSegments)
         {
-			if (PointToLineSegmentDistanceSquared(MousePosInScreen, Segment.Start, Segment.End) >= HandleHitRadius * HandleHitRadius)
-			{
-				continue;
-			}
+            if (PointToLineSegmentDistanceSquared(MousePosInScreen, Segment.Start, Segment.End) >= HandleHitRadius * HandleHitRadius)
+            {
+                continue;
+            }
 
             bIsHoveredAxis = true;
             HoveredAxis = Segment.Axis;
@@ -100,8 +102,12 @@ void FGizmo::Update(FSceneManager* SceneManager)
             {
                 PrevMousePos = MousePosInScreen;
                 AxisDirection = Segment.Direction;
+                HandleScreenStart = Segment.Start;
                 HandleScreenDirection = Segment.End - Segment.Start;
                 HandleScreenDirection.Normalize();
+                DragStartLocation = TargetActor->GetTransform().Location;
+                DragStartMousePosition = MousePosInScreen;
+                bDragStarted = true;
                 bIsSelected = true;
                 SelectedAxis = Segment.Axis;
             }
@@ -109,19 +115,55 @@ void FGizmo::Update(FSceneManager* SceneManager)
         }
     }
 
-	if (!bIsSelected)
-	{
-		return;
-	}
+    if (!bIsSelected)
+    {
+        return;
+    }
 
     const float Sensitivity = 0.01f;
     const float Amount = FVector2::Dot(MousePosInScreen - PrevMousePos, HandleScreenDirection);
 
     const FTransform Transform = TargetActor->GetTransform();
-	if (CurrentOperation == EGIZMO_TYPE::TRANSLATE)
-	{
-        TargetActor->SetLocation(Transform.Location + AxisDirection * Amount * Sensitivity);
-	}
+    if (CurrentOperation == EGIZMO_TYPE::TRANSLATE)
+    {
+        float ProjectionLength = FVector2::Dot(MousePosInScreen - HandleScreenStart, HandleScreenDirection);
+        FVector2 ProjectedPoint = HandleScreenStart + HandleScreenDirection * ProjectionLength;
+
+        // Ray
+        FMatrix ViewProjectionInverse = ViewProjection.Inverse();
+        FVector NearPoint = ScreenToWorld(ProjectedPoint, ViewProjectionInverse, Renderer.GetWidth(), Renderer.GetHeight(), 0.1f);
+        FVector FarPoint = ScreenToWorld(ProjectedPoint, ViewProjectionInverse, Renderer.GetWidth(), Renderer.GetHeight(), 1.0f);
+
+        FRay Ray;
+        Ray.Origin = NearPoint;
+        Ray.Direction = FarPoint - NearPoint;
+        Ray.Direction.Normalize();
+
+        FVector W = DragStartLocation - Ray.Origin;
+
+        float A = FVector::dot(AxisDirection, AxisDirection);
+        float B = FVector::dot(AxisDirection, Ray.Direction);
+        float C = FVector::dot(Ray.Direction, Ray.Direction);
+        float D = FVector::dot(AxisDirection, W);
+        float E = FVector::dot(Ray.Direction, W);
+
+        float Denominator = A * C - B * B;
+        if (FMath::Abs(Denominator) <= KINDA_SMALL_NUMBER)
+        {
+            return;
+        }
+        float T = (B * E - C * D) / Denominator;
+
+        if (bDragStarted)
+        {
+            DragStartAxisParameter = T;
+        }
+        else
+        {
+            FVector NewLocation = DragStartLocation + AxisDirection * (T - DragStartAxisParameter);
+            TargetActor->SetLocation(NewLocation);
+        }
+    }
     else if (CurrentOperation == EGIZMO_TYPE::ROTATE)
     {
         FQuaternion RotationQ = ToQuaternion(FMatrix::Rotate(Transform.Rotation));
