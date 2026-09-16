@@ -9,6 +9,7 @@
 #include "Camera.h"
 #include "RenderInfo.h"
 #include "Vector.h"
+#include "ShowFlags.h"
 
 class FAssetManager;
 
@@ -61,11 +62,7 @@ public:
 	void DrawLine(const FVector& start, const FVector& end, const FVector4& color);
 	void FlushLines();
 
-	bool GetShowWorldAxis() const { return mbShowWorldAxis; }
-	void SetShowWorldAxis(bool bShow) { mbShowWorldAxis = bShow; }
-
-	bool GetShowUUIDText() const { return mbShowUUIDText; }
-	void SetShowUUIDText(bool bShow) { mbShowUUIDText = bShow; }
+	// 표시 옵션은 FShowFlags가 들고 있다. 여기서 중계하지 않는다.
 
 	static FVector GetPrimitiveCenter(EPrimitive type);
 	static FVector GetPrimitiveHalfExtent(EPrimitive type);
@@ -100,8 +97,6 @@ private:
 
 	EViewModeIndex mViewModeIndex = EViewModeIndex::VMI_Lit;
 	bool mbPerspectiveProjection;
-	bool mbShowWorldAxis = true;
-	bool mbShowUUIDText = true;
 	float mAspect;
 	float mProjectionRatio; // 0.0f ~ 1.0f, 0이면 직교, 1이면 원근, 그 사이면 혼합
 

@@ -45,7 +45,6 @@ public:
 	enum { DEFAULT_RESERVE_MEM = 1024U };
 
 	FCamera* Camera = nullptr;
-	bool bShowUUIDText = true;
 
 	TArray<FRenderInfo>     RenderInfos;   // 메시 패스
 	TArray<FRenderLineInfo> LineInfos;     // 라인 패스

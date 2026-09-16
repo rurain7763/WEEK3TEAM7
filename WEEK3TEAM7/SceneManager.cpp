@@ -29,6 +29,7 @@
 #include "Cube.h"
 #include "Assets.h"
 #include "UTextComponent.h"
+#include "ShowFlags.h"
 
 FSceneManager::FSceneManager()
 {
@@ -358,16 +359,16 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 	}
 	if (ImGui::BeginCombo("##ShowFlags", "Show Flags"))
 	{
-		bool bShowWorldAxis = guiReference.GraphicsManager->GetShowWorldAxis();
-		if (ImGui::Checkbox("World axis", &bShowWorldAxis))
+		// 표시 옵션은 표를 그대로 훑어 체크박스를 만든다.
+		// 옵션을 추가할 때 ShowFlags.h의 GShowFlagInfos에만 한 줄 적으면 여기 바로 나온다.
+		FShowFlags& showFlags = FShowFlags::Get();
+		for (const FShowFlagInfo& flagInfo : GShowFlagInfos)
 		{
-			guiReference.GraphicsManager->SetShowWorldAxis(bShowWorldAxis);
-		}
-
-		bool bShowUUIDText = guiReference.GraphicsManager->GetShowUUIDText();
-		if (ImGui::Checkbox("UUID", &bShowUUIDText))
-		{
-			guiReference.GraphicsManager->SetShowUUIDText(bShowUUIDText);
+			bool bEnabled = showFlags.IsEnabled(flagInfo.Flag);
+			if (ImGui::Checkbox(flagInfo.Name, &bEnabled))
+			{
+				showFlags.SetEnabled(flagInfo.Flag, bEnabled);
+			}
 		}
 
 		bool bOrthographic = guiReference.GraphicsManager->IsOrthographicTarget();
