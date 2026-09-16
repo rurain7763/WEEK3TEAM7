@@ -98,20 +98,7 @@ void FGraphicsManager::GizmoPrepare()
 }
 void FGraphicsManager::Render()
 {
-	FMatrix viewProjection;
-	//if (mbPerspectiveProjection)
-	//{
-	//	viewProjection = mViewProjectionMatrix;
-	//}
-	//else
-	//{
-	//	viewProjection = mViewOrthogonalProjectionMatrix;
-	//}
-
-	viewProjection = mViewUnifiedProjectionMatrix;
-
 	mRenderer->RenderLines(mRenderCollector.LineInfos);
-	mRenderCollector.LineInfos.Empty();
 
 	for (const FRenderInfo& renderInfo : mRenderCollector.RenderInfos)
 	{
@@ -142,11 +129,25 @@ void FGraphicsManager::Render()
 		}
 	}
 
-	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.QuadInfos)
+	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOpaqueQuadInfos())
 	{
 		mRenderer->RenderQuad(QuadInfo);
 	}
-	mRenderCollector.QuadInfos.Empty();
+
+	mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 2.f);
+	mRenderer->RenderWorldGrid(mViewUnifiedProjectionMatrix, mCameraLocation);
+
+	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetTransparentQuadInfos())
+	{
+		mRenderer->RenderQuad(QuadInfo);
+	}
+
+	for (const FRenderQuadInfo& QuadInfo : mRenderCollector.GetOverlayQuadInfos())
+	{
+		mRenderer->RenderQuad(QuadInfo);
+	}
+
+	mRenderCollector.Clear();
 }
 
 void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const FVector4& color)
@@ -154,50 +155,6 @@ void FGraphicsManager::DrawLine(const FVector& start, const FVector& end, const 
 	// 월드 좌표 그대로 넣는다. 그래서 그릴 때 World 행렬이 단위행렬이다
 	mLineVertices.Add({ start.x, start.y, start.z, color.x, color.y, color.z, color.w });
 	mLineVertices.Add({ end.x,   end.y,   end.z,   color.x, color.y, color.z, color.w });
-}
-
-void FGraphicsManager::DrawWorldAxis()
-{
-#if 0
-	if (!mbShowWorldAxis) return;
-
-	// far plane이 100이라 그 안쪽으로 잡아야 잘리지 않는다
-	constexpr float AXIS_LENGTH = 50.0f;
-	// 세 축이 원점에서 정확히 겹치면 깊이 다툼이 생긴다. 눈에 안 띌 만큼만 띄운다
-	constexpr float AXIS_ORIGIN_GAP = 0.01f;
-	// 음의 방향은 어둡게 깔아 +쪽과 구분한다 (언리얼 에디터와 같은 처리)
-	constexpr float NEGATIVE_DIM = 0.25f;
-
-	const FVector axisDirections[3] =
-	{
-		FVector(1.0f, 0.0f, 0.0f),
-		FVector(0.0f, 1.0f, 0.0f),
-		FVector(0.0f, 0.0f, 1.0f),
-	};
-	const FVector4 axisColors[3] =
-	{
-		FVector4(1.0f, 0.0f, 0.0f, 1.0f),   // X = 빨강
-		FVector4(0.0f, 1.0f, 0.0f, 1.0f),   // Y = 초록
-		FVector4(0.0f, 0.4f, 1.0f, 1.0f),   // Z = 파랑
-	};
-
-	for (int32 i = 0; i < 3; ++i)
-	{
-		const FVector& direction = axisDirections[i];
-		const FVector4& color = axisColors[i];
-		const FVector4 dimColor(
-			color.x * NEGATIVE_DIM,
-			color.y * NEGATIVE_DIM,
-			color.z * NEGATIVE_DIM,
-			color.w);
-
-		DrawLine(direction * AXIS_ORIGIN_GAP, direction * AXIS_LENGTH, color);
-		DrawLine(direction * -AXIS_ORIGIN_GAP, direction * -AXIS_LENGTH, dimColor);
-	}
-#else
-	mRenderer->RenderWorldAxis(mViewMatrix, mProjectionMatrix, FVector4(0.f, 0.f, 1.f, 1.f), FVector3(0.f, 0.f, 1.f), 2.f);
-	mRenderer->RenderWorldGrid(mViewUnifiedProjectionMatrix, mCameraLocation);
-#endif
 }
 
 void FGraphicsManager::FlushLines()

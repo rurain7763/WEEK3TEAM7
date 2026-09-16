@@ -45,7 +45,7 @@ private:
 	FAssetManager* mAssetManager;
 	FFontManager* mFontManager;
 
-	FComponentVisualizerModule mComponentVisualizerModule;
+	FComponentVisualizerManager* mComponentVisualizerManager;
 };
 
 inline FEngineLoop GEngineLoop;

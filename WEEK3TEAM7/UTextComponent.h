@@ -44,7 +44,7 @@ public:
 		QuadInfo.EnableDepthTest = mEnableDepthTest;
 		QuadInfo.EnableDepthWrite = mEnableDepthWrite;
 
-		RenderCollector.QuadInfos.Add(QuadInfo);
+		RenderCollector.AddQuadInfo(QuadInfo);
 	}
 
 	inline void SetBillboardCamera(FCamera& camera) { mBillboardCamera = &camera; }
@@ -89,6 +89,8 @@ class ASpotLight : public AActor
 public:
 	ASpotLight()
 	{
+		USpotLightComponent* SpotLightComponent = FObjectFactory::ConstructObject<USpotLightComponent>(FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1));
+		AddRootSceneComponent(SpotLightComponent);
 	}
 
 	void SerializeClass(json::JSON& outJson) const override
@@ -210,23 +212,6 @@ public:
 
 			FVector GlyphCenter(TextLocation.x, TextLocation.y + WorldBearingX + WorldWidth * 0.5f, TextLocation.z + WorldBearingY - WorldHeight * 0.5f);
 			FMatrix TextModel = FMatrix::Scale(FVector3(1.0f, WorldWidth, WorldHeight)) * FMatrix::Translation(GlyphCenter);
-			
-#if 0
-			if (mbBillboard)
-			{
-				FMatrix BillboardMatrix = FMatrix(
-					FVector4(CameraForward.x, CameraForward.y, CameraForward.z, 0.f),
-					FVector4(CameraRight.x, CameraRight.y, CameraRight.z, 0.f),
-					FVector4(CameraUp.x, CameraUp.y, CameraUp.z, 0.f),
-					FVector4(0.f, 0.f, 0.f, 1.f)
-				);
-
-				TextModel *= FMatrix::Scale(PivotTransform.Scale) * BillboardMatrix * FMatrix::Translation(PivotTransform.Location);
-			}
-			else
-			{
-			}
-#endif
 
 			TextModel *= PivotTransform.MakeMatrix();
 
@@ -238,7 +223,7 @@ public:
 			QuadInfo.EnableDepthTest = mEnableDepthTest;
 			QuadInfo.EnableDepthWrite = mEnableDepthWrite;
 
-			RenderCollector.QuadInfos.Add(QuadInfo);
+			RenderCollector.AddQuadInfo(QuadInfo);
 
 			TextLocation.y += WorldAdvance;
 		}

@@ -219,16 +219,13 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 			{
 				NewActor = FObjectFactory::ConstructObject<ASpotLight>();
 
-				USpotLightComponent* SpotLightComponent = FObjectFactory::ConstructObject<USpotLightComponent>(FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1));
-				NewActor->AddRootSceneComponent(SpotLightComponent);
-
 				TSharedPtr<FTexture2DAsset> SpotLightTexture = FAssetManager::Get().GetAssetAs<FTexture2DAsset>(FName("SpotLightIcon"), true);
 
 				UPlaneComponent* PlaneComponent = FObjectFactory::ConstructObject<UPlaneComponent>(FVector(0, 0, 0), FRotator(0, 0, 0), FVector(1, 1, 1));
 				PlaneComponent->SetBillboardCamera(guiReference.ViewportClient->GetCamera());
 				PlaneComponent->SetBillboard(true);
 				PlaneComponent->SetTexture(SpotLightTexture);
-				PlaneComponent->SetDepthState(true, true);
+				PlaneComponent->SetDepthState(true, false);
 
 				NewActor->AddComponent(PlaneComponent);
 			}
@@ -244,7 +241,7 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 				Text3DComponent->SetBillboard(true);
 				Text3DComponent->SetText(Utf2Wide(std::format("UUID: {}", NewActor->UUID)));
 				Text3DComponent->SetFontAtlasAsset(FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(FName("TestFontAtlas")));
-				Text3DComponent->SetDepthState(false, true);
+				Text3DComponent->SetDepthState(false, false);
 				
 				NewActor->AddComponent(Text3DComponent);
 

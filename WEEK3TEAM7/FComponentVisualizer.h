@@ -86,12 +86,21 @@ public:
 	}
 };
 
-class FComponentVisualizerModule
+class FComponentVisualizerManager
 {
 public:
+	FComponentVisualizerManager()
+	{
+		RegisterVisualizer(USpotLightComponent::GetClass(), MakeShared<FSpotLightComponentVisualizer>());
+	}
+
 	void RegisterVisualizer(const FClassInfo* ComponentClass, TSharedPtr<FComponentVisualizer> Visualizer)
 	{
-		mVisualizers.Add(ComponentClass, Visualizer);
+		FVisualizerEntry Entry;
+		Entry.Visualizer = Visualizer;
+		Entry.bMuted = false;
+
+		mVisualizers.Add(ComponentClass, Entry);
 	}
 
 	void UnregisterVisualizer(const FClassInfo* ComponentClass)
@@ -99,12 +108,36 @@ public:
 		mVisualizers.Remove(ComponentClass);
 	}
 
+	void MuteVisualizer(const FClassInfo* ComponentClass)
+	{
+		FVisualizerEntry* Entry = mVisualizers.Find(ComponentClass);
+		if (Entry)
+		{
+			Entry->bMuted = true;
+		}
+	}
+
+	void UnmuteVisualizer(const FClassInfo* ComponentClass)
+	{
+		FVisualizerEntry* Entry = mVisualizers.Find(ComponentClass);
+		if (Entry)
+		{
+			Entry->bMuted = false;
+		}
+	}
+
 	FComponentVisualizer* FindVisualizer(const FClassInfo* ComponentClass)
 	{
-		TSharedPtr<FComponentVisualizer>* Visualizer = mVisualizers.Find(ComponentClass);
-		return Visualizer ? Visualizer->get() : nullptr;
+		FVisualizerEntry* Entry = mVisualizers.Find(ComponentClass);
+		return Entry ? Entry->Visualizer.get() : nullptr;
 	}
 
 private:
-	TMap<const FClassInfo*, TSharedPtr<FComponentVisualizer>> mVisualizers;
+	struct FVisualizerEntry
+	{
+		TSharedPtr<FComponentVisualizer> Visualizer;
+		bool bMuted = false;
+	};
+
+	TMap<const FClassInfo*, FVisualizerEntry> mVisualizers;
 };

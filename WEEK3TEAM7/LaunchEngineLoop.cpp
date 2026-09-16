@@ -86,7 +86,7 @@ void FEngineLoop::Init(HINSTANCE hInstance, WNDPROC WndProc)
 	mFontManager = new FFontManager();
 	InitAssetManager();
 
-	mComponentVisualizerModule.RegisterVisualizer(USpotLightComponent::GetClass(), MakeShared<FSpotLightComponentVisualizer>());
+	mComponentVisualizerManager = new FComponentVisualizerManager();
 
 	mSceneManager->NewScene();
 
@@ -222,7 +222,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 				}
 
 				// 선택된 액터의 컴포넌트 시각화
-				FComponentVisualizer* Visualizer = mComponentVisualizerModule.FindVisualizer(Component->GetRuntimeClass());
+				FComponentVisualizer* Visualizer = mComponentVisualizerManager->FindVisualizer(Component->GetRuntimeClass());
 				if (Visualizer)
 				{
 					Visualizer->VisualizeComponent(Component, RenderCollector);
@@ -243,10 +243,7 @@ void FEngineLoop::Tick(bool bPumpMessages)
 
 		mGraphicsManager->Update(deltaTime);
 		mGraphicsManager->Prepare(&ViewportClient->mCamera, mSceneManager->GetViewportWidth(), mSceneManager->GetViewportHeight());
-
-		mGraphicsManager->DrawWorldAxis();
 		mGraphicsManager->FlushLines();
-
 		mGraphicsManager->Render();
 		
 		//강조
@@ -292,6 +289,7 @@ void FEngineLoop::End()
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
 
+	delete mComponentVisualizerManager;
 	delete ViewportClient;
 	delete FrameTimer;
 	delete mSceneManager;

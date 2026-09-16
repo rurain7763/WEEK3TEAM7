@@ -48,14 +48,12 @@ void URenderer::Create(HWND hWindow)
 
 	LinePipeline = CreateRenderPipeline();
 	LinePipeline->SetRasterRizerState(D3D11_CULL_NONE);
-	LinePipeline->SetDepthStencilState(true, true);
 	LinePipeline->SetShader("Assets/Shaders/Line.hlsl");
 	LinePipeline->AddConstantBuffer<FCameraConstants>();
 	LinePipeline->SetShaderResource(0, LineStructuredBuffer->SRV);
 
 	PrimitivePipeline = CreateRenderPipeline();
 	PrimitivePipeline->SetRasterRizerState(D3D11_CULL_BACK, 0, {EViewModeIndex::VMI_Lit, EViewModeIndex::VMI_Wireframe});
-	PrimitivePipeline->SetDepthStencilState(true, true);
 	PrimitivePipeline->SetShader("Assets/Shaders/Mesh.hlsl");
 	PrimitivePipeline->AddConstantBuffer<FConstants>();
 	PrimitivePipeline->AddConstantBuffer<FMatrix>();
@@ -81,7 +79,6 @@ void URenderer::Create(HWND hWindow)
 
 	WorldAxisPipeline = CreateRenderPipeline();
 	WorldAxisPipeline->SetRasterRizerState(D3D11_CULL_NONE);
-	WorldAxisPipeline->SetDepthStencilState(true, true);
 	WorldAxisPipeline->SetShader("Assets/Shaders/WorldAxis.hlsl");
 	WorldAxisPipeline->AddConstantBuffer<FWorldAxisConstants>();
 

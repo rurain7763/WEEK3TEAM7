@@ -41,13 +41,51 @@ struct FRenderLineInfo
 // 이번 프레임에 그릴 것들을 한데 모은다. 소유자는 FGraphicsManager.
 struct FRenderCollector
 {
+public:
 	enum { DEFAULT_RESERVE_MEM = 1024U };
 
 	FCamera* Camera = nullptr;
 	bool bShowUUIDText = true;
 
 	TArray<FRenderInfo>     RenderInfos;   // 메시 패스
-	TArray<FRenderQuadInfo> QuadInfos;     // 쿼드 패스
 	TArray<FRenderLineInfo> LineInfos;     // 라인 패스
 	TArray<UPrimitiveComponent*> PickTargets;
+
+	inline void AddQuadInfo(const FRenderQuadInfo& QuadInfo)
+	{
+		if (QuadInfo.EnableDepthTest)
+		{
+			if (QuadInfo.EnableDepthWrite)
+			{
+				OpaqueQuadInfos.Add(QuadInfo);
+			}
+			else
+			{
+				TransparentQuadInfos.Add(QuadInfo);
+			}
+		}
+		else
+		{
+			OverlayQuadInfos.Add(QuadInfo);
+		}
+	}
+
+	inline void Clear()
+	{
+		RenderInfos.Empty();
+		LineInfos.Empty();
+		PickTargets.Empty();
+		OpaqueQuadInfos.Empty();
+		TransparentQuadInfos.Empty();
+		OverlayQuadInfos.Empty();
+	}
+
+	inline const TArray<FRenderQuadInfo>& GetOpaqueQuadInfos() const { return OpaqueQuadInfos; }
+	inline const TArray<FRenderQuadInfo>& GetTransparentQuadInfos() const { return TransparentQuadInfos; }
+	inline const TArray<FRenderQuadInfo>& GetOverlayQuadInfos() const { return OverlayQuadInfos; }
+
+private:
+	TArray<FRenderQuadInfo> OpaqueQuadInfos;
+	TArray<FRenderQuadInfo> TransparentQuadInfos;
+	TArray<FRenderQuadInfo> OverlayQuadInfos;
 };
