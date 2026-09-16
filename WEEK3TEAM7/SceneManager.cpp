@@ -248,6 +248,7 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 				PlaneComponent->SetBillboardCamera(guiReference.ViewportClient->GetCamera());
 				PlaneComponent->SetBillboard(true);
 				PlaneComponent->SetTexture(SpotLightTexture);
+				PlaneComponent->SetBlendState(ERenderBlendMode::Transparent);
 				PlaneComponent->SetDepthState(true, false);
 
 				NewActor->AddComponent(PlaneComponent);
