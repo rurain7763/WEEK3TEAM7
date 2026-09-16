@@ -129,6 +129,13 @@ void FRenderPipeline::SetDepthStencilState(bool bEnableDepthTest, bool bEnableDe
 	DepthStencilState = DepthStencilStatePool->GetOrCreateDepthStencilState(Device, Key);
 }
 
+void FRenderPipeline::SetStencilState(bool bEnableDepthTest, bool bEnableDepthWrite, D3D11_COMPARISON_FUNC StencilFunc, D3D11_STENCIL_OP StencilPassOp, uint32 InStencilRef)
+{
+	FDepthStencilStateKey Key{ bEnableDepthTest, bEnableDepthWrite, true, StencilFunc, StencilPassOp };
+	DepthStencilState = DepthStencilStatePool->GetOrCreateDepthStencilState(Device, Key);
+	StencilRef = InStencilRef;
+}
+
 void FRenderPipeline::SetBlendState(ERenderBlendMode BlendMode)
 {
 	BlendState = BlendStatePool->GetOrCreateBlendState(Device, BlendMode);

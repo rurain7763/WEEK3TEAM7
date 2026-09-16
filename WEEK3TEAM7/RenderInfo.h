@@ -15,6 +15,7 @@ enum class ERenderBlendMode
 	Masked,
 	Transparent,
 	Additive,
+	NoColorWrite,
 	Count
 };
 

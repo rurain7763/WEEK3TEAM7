@@ -149,10 +149,17 @@ struct FDepthStencilStateKey
 {
 	bool bEnableDepthTest;
 	bool bEnableDepthWrite;
+	bool bEnableStencil = false;
+	D3D11_COMPARISON_FUNC StencilFunc = D3D11_COMPARISON_ALWAYS;
+	D3D11_STENCIL_OP StencilPassOp = D3D11_STENCIL_OP_KEEP;
 	
 	bool operator==(const FDepthStencilStateKey& Other) const
 	{
-		return bEnableDepthTest == Other.bEnableDepthTest && bEnableDepthWrite == Other.bEnableDepthWrite;
+		return bEnableDepthTest == Other.bEnableDepthTest
+			&& bEnableDepthWrite == Other.bEnableDepthWrite
+			&& bEnableStencil == Other.bEnableStencil
+			&& StencilFunc == Other.StencilFunc
+			&& StencilPassOp == Other.StencilPassOp;
 	}
 };
 
@@ -160,7 +167,11 @@ struct FDepthStencilStateKeyHash
 {
 	std::size_t operator()(const FDepthStencilStateKey& Key) const
 	{
-		return std::hash<bool>()(Key.bEnableDepthTest) ^ (std::hash<bool>()(Key.bEnableDepthWrite) << 1);
+		return std::hash<bool>()(Key.bEnableDepthTest)
+			^ (std::hash<bool>()(Key.bEnableDepthWrite) << 1)
+			^ (std::hash<bool>()(Key.bEnableStencil) << 2)
+			^ (std::hash<int>()(static_cast<int>(Key.StencilFunc)) << 3)
+			^ (std::hash<int>()(static_cast<int>(Key.StencilPassOp)) << 5);
 	}
 };
 
@@ -179,7 +190,18 @@ public:
 		DepthStencilDesc.DepthEnable = Key.bEnableDepthTest ? TRUE : FALSE;
 		DepthStencilDesc.DepthWriteMask = Key.bEnableDepthWrite ? D3D11_DEPTH_WRITE_MASK_ALL : D3D11_DEPTH_WRITE_MASK_ZERO;
 		DepthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
-		DepthStencilDesc.StencilEnable = FALSE;
+		DepthStencilDesc.StencilEnable = Key.bEnableStencil ? TRUE : FALSE;
+		DepthStencilDesc.StencilReadMask = D3D11_DEFAULT_STENCIL_READ_MASK;
+		DepthStencilDesc.StencilWriteMask = D3D11_DEFAULT_STENCIL_WRITE_MASK;
+
+		D3D11_DEPTH_STENCILOP_DESC StencilOpDesc = {};
+		StencilOpDesc.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+		StencilOpDesc.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+		StencilOpDesc.StencilPassOp = Key.StencilPassOp;
+		StencilOpDesc.StencilFunc = Key.StencilFunc;
+
+		DepthStencilDesc.FrontFace = StencilOpDesc;
+		DepthStencilDesc.BackFace = StencilOpDesc;
 
 		ID3D11DepthStencilState* DepthStencilState = nullptr;
 		HRESULT Hr = Device->CreateDepthStencilState(&DepthStencilDesc, &DepthStencilState);
@@ -241,6 +263,10 @@ public:
 			BlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
 			BlendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
 			BlendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+			break;
+		case ERenderBlendMode::NoColorWrite:
+			BlendDesc.RenderTarget[0].BlendEnable = FALSE;
+			BlendDesc.RenderTarget[0].RenderTargetWriteMask = 0;
 			break;
 		}
 
@@ -380,7 +406,6 @@ public:
 	void Prepare(const FMatrix& ViewProjectionMatrix);
 #if 0
 	void RenderLines(const FVertexSimple* vertices, uint32 numVertices);
-	void RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI);
 #endif
 
 	TSharedPtr<FRenderPipeline> CreateRenderPipeline();
@@ -391,6 +416,8 @@ public:
 	void BindRenderTarget(const TSharedPtr<FRenderTarget2D>& RenderTarget, const TSharedPtr<FDepthStencil>& DepthStencil, bool bClear = true);
 
 	void RenderLines(const TArray<FRenderLineInfo>& Lines) const;
+
+	void RenderHighlight(Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer, UINT NumVertices, Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer, UINT NumIndices, const FMatrix& Model, const FMatrix& OutlineModel, const FVector4& OutlineColor) const;
 
 	void RenderQuad(const FRenderQuadInfo& Info) const;
 
@@ -449,6 +476,8 @@ private:
 
 	TSharedPtr<FRenderPipeline> LinePipeline;
 	TSharedPtr<FRenderPipeline> PrimitivePipeline;
+	TSharedPtr<FRenderPipeline> StencilMarkPipeline;
+	TSharedPtr<FRenderPipeline> StencilOutlinePipeline;
 	TSharedPtr<FRenderPipeline> Line2DPipeline;
 	TSharedPtr<FRenderPipeline> Circle2DPipeline;
 	TSharedPtr<FRenderPipeline> Triangle2DPipeline;

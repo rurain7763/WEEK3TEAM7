@@ -277,6 +277,11 @@ FVector FGraphicsManager::GetPrimitiveHalfExtent(EPrimitive type)
 
 void FGraphicsManager::RenderHighLight(const FRenderInfo& RI)
 {
+	if (!RI.StaticMesh)
+	{
+		return;
+	}
+
 	const FVector Center = GetPrimitiveCenter(RI.ePrimitive);
 	const FVector HalfExtent = GetPrimitiveHalfExtent(RI.ePrimitive);
 
@@ -310,19 +315,12 @@ void FGraphicsManager::RenderHighLight(const FRenderInfo& RI)
 		* FMatrix::Translation(Center)
 		* RI.WorldTransformMatrix;
 
-#if 0
-	FBuffer vertexBuffer = mBufferMap[RI.ePrimitive];
-	//if (mbPerspectiveProjection)
-	//{
-	//	mRenderer->RenderHighlight(vertexBuffer.Buffer, vertexBuffer.SourceNum, mViewProjectionMatrix, Outline, RI);
-	//}
-	//else
-	//{
-	//	mRenderer->RenderHighlight(vertexBuffer.Buffer, vertexBuffer.SourceNum, mViewOrthogonalProjectionMatrix, Outline, RI);
-	//}
-
-	mRenderer->RenderHighlight(vertexBuffer.Buffer, vertexBuffer.SourceNum, mViewUnifiedProjectionMatrix, Outline, RI);
-#endif
+	mRenderer->RenderHighlight(
+		RI.StaticMesh->GetVertexBuffer(), RI.StaticMesh->GetVertexCount(),
+		RI.StaticMesh->GetIndexBuffer(), RI.StaticMesh->GetIndexCount(),
+		RI.WorldTransformMatrix,
+		Outline,
+		FVector4(1.f, 0.6f, 0.f, 1.f));
 }
 
 void FGraphicsManager::StartProjectionTransition(bool orthographic)

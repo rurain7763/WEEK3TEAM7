@@ -49,6 +49,22 @@ void URenderer::Create(HWND hWindow)
 	PrimitivePipeline->AddConstantBuffer<FMatrix>();
 	PrimitivePipeline->SetSamplerState(0, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_TEXTURE_ADDRESS_WRAP);
 
+	StencilMarkPipeline = CreateRenderPipeline();
+	StencilMarkPipeline->SetRasterRizerState(D3D11_CULL_BACK);
+	StencilMarkPipeline->SetStencilState(false, false, D3D11_COMPARISON_ALWAYS, D3D11_STENCIL_OP_REPLACE, 1);
+	StencilMarkPipeline->SetBlendState(ERenderBlendMode::NoColorWrite);
+	StencilMarkPipeline->SetShader("Assets/Shaders/Mesh.hlsl");
+	StencilMarkPipeline->AddConstantBuffer<FConstants>();
+	StencilMarkPipeline->AddConstantBuffer<FMatrix>();
+
+	StencilOutlinePipeline = CreateRenderPipeline();
+	StencilOutlinePipeline->SetRasterRizerState(D3D11_CULL_BACK);
+	StencilOutlinePipeline->SetStencilState(false, false, D3D11_COMPARISON_NOT_EQUAL, D3D11_STENCIL_OP_KEEP, 1);
+	StencilOutlinePipeline->SetBlendState(ERenderBlendMode::Opaque);
+	StencilOutlinePipeline->SetShader("Assets/Shaders/Mesh.hlsl");
+	StencilOutlinePipeline->AddConstantBuffer<FConstants>();
+	StencilOutlinePipeline->AddConstantBuffer<FMatrix>();
+
 	Line2DPipeline = CreateRenderPipeline();
 	Line2DPipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	Line2DPipeline->SetDepthStencilState(false, false);
@@ -215,6 +231,8 @@ void URenderer::Release()
 	Circle2DPipeline.reset();
 	Line2DPipeline.reset();
 	PrimitivePipeline.reset();
+	StencilMarkPipeline.reset();
+	StencilOutlinePipeline.reset();
 
 	for (auto& Pair : SamplerStatePool.SamplerStates)
 	{
@@ -267,6 +285,8 @@ void URenderer::Prepare(const FMatrix& ViewProjectionMatrix)
 
 	LinePipeline->UpdateConstantBuffer(0, CameraConstants);
 	PrimitivePipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
+	StencilMarkPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
+	StencilOutlinePipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
 	QuadPipeline->UpdateConstantBuffer(1, ViewProjectionMatrix);
 }
 
@@ -384,7 +404,7 @@ void URenderer::BindPipeline(const TSharedPtr<FRenderPipeline>& Pipeline) const
 	// RSSetState는 드로우 직전마다 갈아치워지므로 뷰 모드 선택은 여기서 해야 한다.
 	// 이 모드를 지원하지 않는 파이프라인(2D/기즈모)은 Lit 상태로 폴백된다.
 	DeviceContext->RSSetState(Pipeline->GetRasterizerState(ViewModeIndex));
-	DeviceContext->OMSetDepthStencilState(Pipeline->DepthStencilState, 0);
+	DeviceContext->OMSetDepthStencilState(Pipeline->DepthStencilState, Pipeline->StencilRef);
 	DeviceContext->OMSetBlendState(Pipeline->BlendState, nullptr, 0xffffffff);
 	DeviceContext->IASetPrimitiveTopology(Pipeline->PrimitiveTopology);
 	DeviceContext->IASetInputLayout(Pipeline->InputLayout);
@@ -428,58 +448,6 @@ void URenderer::RSUpdateState()
 	DeviceContext->RSSetState(RasterizerState[0]);
 }
 
-#if 0
-// 쌓아둔 선분 전체를 한 번의 Draw로 그린다.
-// 토폴로지를 바꾸므로 반드시 이 함수 안에서 되돌린다. 안 그러면 뒤에 그리는 것들이 전부 깨진다.
-void URenderer::RenderLines(const FVertexSimple* vertices, uint32 numVertices)
-{
-	if (!LineVertexBuffer || vertices == nullptr || numVertices == 0) return;
-
-	if (numVertices > LineVertexCapacity)
-	{
-		numVertices = LineVertexCapacity;   // 넘치면 자른다. 늘리려면 CreateLineVertexBuffer의 인자를 키운다
-	}
-
-	// WRITE_DISCARD: 이전 내용을 버리고 새 메모리를 받는다.
-	// GPU가 지난 프레임 데이터를 아직 읽고 있어도 CPU가 기다리지 않는다.
-	D3D11_MAPPED_SUBRESOURCE lineBufferMSR;
-	if (FAILED(DeviceContext->Map(LineVertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &lineBufferMSR)))
-	{
-		return;
-	}
-	memcpy(lineBufferMSR.pData, vertices, numVertices * sizeof(FVertexSimple));
-	DeviceContext->Unmap(LineVertexBuffer, 0);
-
-	// 직전에 메시 버퍼가 물려 있으므로 갈아끼워야 한다
-	UINT offset = 0;
-	DeviceContext->IASetVertexBuffers(0, 1, &LineVertexBuffer, &Stride, &offset);
-	DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-
-	DeviceContext->Draw(numVertices, 0);
-
-	DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-}
-
-void URenderer::RenderHighlight(ID3D11Buffer* pBuffer, uint32 Num, FMatrix mViewProjectionMatrix, FMatrix Outline, const FRenderInfo& RI)
-{
-	// (a) 스텐실에 1 마킹. 색은 쓰지 않으므로 화면 변화 없음.
-	//     다른 오브젝트에 가려진 부분도 반드시 마킹해야 한다. 여기서 빠지면
-	//     (b)의 != 1 조건을 통과해 버려서 겹친 영역 전체가 단색으로 칠해진다.
-	DeviceContext->OMSetBlendState(NoColorWriteBlendState, nullptr, 0xffffffff);
-	DeviceContext->OMSetDepthStencilState(StencilMarkState, 1);
-	UpdateConstant(RI.WorldTransformMatrix, mViewProjectionMatrix);
-	RenderPrimitive(pBuffer, Num);
-
-	// (b) 확대판을 단색으로. 스텐실 != 1 인 곳만 통과 -> 테두리
-	DeviceContext->OMSetBlendState(nullptr, nullptr, 0xffffffff);
-	DeviceContext->OMSetDepthStencilState(StencilOutlineState, 1);
-	UpdateConstant(Outline, mViewProjectionMatrix, FVector4(1.f, 0.6f, 0.f, 1.f));
-	RenderPrimitive(pBuffer, Num);
-
-	// (c) 원상복구
-	DeviceContext->OMSetDepthStencilState(DepthStencilState, 0);
-}
-#endif
 
 void URenderer::BindFrameBuffer()
 {
@@ -529,6 +497,31 @@ void URenderer::RenderLines(const TArray<FRenderLineInfo>& Lines) const
 
 		Remaining -= BatchSize;
 		Offset += BatchSize;
+	}
+}
+
+void URenderer::RenderHighlight(Microsoft::WRL::ComPtr<ID3D11Buffer> VertexBuffer, UINT NumVertices, Microsoft::WRL::ComPtr<ID3D11Buffer> IndexBuffer, UINT NumIndices, const FMatrix& Model, const FMatrix& OutlineModel, const FVector4& OutlineColor) const
+{
+	const bool bIndexed = IndexBuffer && NumIndices > 0;
+
+	StencilMarkPipeline->UpdateConstantBuffer(0, FConstants{ Model, FVector4(1.f, 1.f, 1.f, 1.f), 0, 0 });
+	if (bIndexed)
+	{
+		RenderPrimitiveIndexed(StencilMarkPipeline, VertexBuffer, IndexBuffer, NumIndices);
+	}
+	else
+	{
+		RenderPrimitive(StencilMarkPipeline, VertexBuffer, NumVertices);
+	}
+
+	StencilOutlinePipeline->UpdateConstantBuffer(0, FConstants{ OutlineModel, OutlineColor, 0, 0 });
+	if (bIndexed)
+	{
+		RenderPrimitiveIndexed(StencilOutlinePipeline, VertexBuffer, IndexBuffer, NumIndices);
+	}
+	else
+	{
+		RenderPrimitive(StencilOutlinePipeline, VertexBuffer, NumVertices);
 	}
 }
 
