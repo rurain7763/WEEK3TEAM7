@@ -36,16 +36,6 @@ void URenderer::Create(HWND hWindow)
 
 	LineStructuredBuffer = CreateStructuredBuffer<FRenderLineInfo>(MaxLineInstances);
 
-	CD3D11_BLEND_DESC AlphaBlendDesc = {};
-	AlphaBlendDesc.RenderTarget[0].BlendEnable = TRUE;
-	AlphaBlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-	AlphaBlendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-	AlphaBlendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-	AlphaBlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ZERO;
-	AlphaBlendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
-	AlphaBlendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-	AlphaBlendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
 	LinePipeline = CreateRenderPipeline();
 	LinePipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	LinePipeline->SetShader("Assets/Shaders/Line.hlsl");
@@ -85,14 +75,14 @@ void URenderer::Create(HWND hWindow)
 	WorldGridPipeline = CreateRenderPipeline();
 	WorldGridPipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	WorldGridPipeline->SetDepthStencilState(true, false);
-	WorldGridPipeline->SetBlendState(AlphaBlendDesc);
+	WorldGridPipeline->SetBlendState(ERenderBlendMode::Transparent);
 	WorldGridPipeline->SetShader("Assets/Shaders/WorldGrid.hlsl");
 	WorldGridPipeline->AddConstantBuffer<FWorldGridConstants>();
 
 	QuadPipeline = CreateRenderPipeline();
 	QuadPipeline->SetRasterRizerState(D3D11_CULL_NONE);
 	QuadPipeline->SetDepthStencilState(false, true);
-	QuadPipeline->SetBlendState(AlphaBlendDesc);
+	QuadPipeline->SetBlendState(ERenderBlendMode::Transparent);
 	QuadPipeline->SetShader("Assets/Shaders/Quad.hlsl");
 	QuadPipeline->AddConstantBuffer<FQuadConstants>();
 	QuadPipeline->AddConstantBuffer<FMatrix>();
@@ -237,6 +227,15 @@ void URenderer::Release()
 	}
 	DepthStencilStatePool.DepthStencilStates.Empty();
 
+	for (auto& BlendState : BlendStatePool.BlendStates)
+	{
+		if (BlendState)
+		{
+			BlendState->Release();
+			BlendState = nullptr;
+		}
+	}
+
 	DeviceContext->OMSetRenderTargets(0, nullptr, nullptr);
 	DepthStencilView->Release();
 	DepthStencilBuffer->Release();
@@ -314,7 +313,7 @@ Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> URenderer::CreateShaderResource
 
 TSharedPtr<FRenderPipeline> URenderer::CreateRenderPipeline()
 {
-	return MakeShared<FRenderPipeline>(Device, DeviceContext, &SamplerStatePool, &DepthStencilStatePool);
+	return MakeShared<FRenderPipeline>(Device, DeviceContext, &SamplerStatePool, &DepthStencilStatePool, &BlendStatePool);
 }
 
 TSharedPtr<FRenderTarget2D> URenderer::CreateRenderTarget2D(uint32 Width, uint32 Height, DXGI_FORMAT Format)
@@ -541,6 +540,7 @@ void URenderer::RenderQuad(const FRenderQuadInfo& Info) const
 		QuadPipeline->SetShaderResource(0, Info.TextureSRV);
 	}
 
+	QuadPipeline->SetBlendState(Info.BlendMode);
 	QuadPipeline->SetDepthStencilState(Info.EnableDepthTest, Info.EnableDepthWrite);
 
 	BindPipeline(QuadPipeline);

@@ -197,6 +197,69 @@ private:
 	TMap<FDepthStencilStateKey, ID3D11DepthStencilState*, FDepthStencilStateKeyHash> DepthStencilStates;
 };
 
+class FBlendStatePool
+{
+public:
+	FBlendStatePool()
+	{
+		for (int i = 0; i < static_cast<int>(ERenderBlendMode::Count); ++i)
+		{
+			BlendStates[i] = nullptr;
+		}
+	}
+
+	ID3D11BlendState* GetOrCreateBlendState(ID3D11Device* Device, ERenderBlendMode BlendMode)
+	{
+		ID3D11BlendState* Result = BlendStates[static_cast<int>(BlendMode)];
+		if (Result)
+		{
+			return Result;
+		}
+
+		CD3D11_BLEND_DESC BlendDesc = {};
+		BlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ZERO;
+		BlendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+		BlendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+		BlendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+		switch (BlendMode)
+		{
+		case ERenderBlendMode::Opaque:
+		case ERenderBlendMode::Masked:
+			BlendDesc.RenderTarget[0].BlendEnable = FALSE;
+			break;
+		case ERenderBlendMode::Transparent:
+			BlendDesc.RenderTarget[0].BlendEnable = TRUE;
+			BlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+			BlendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+			BlendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+			break;
+		case ERenderBlendMode::Additive:
+			BlendDesc.RenderTarget[0].BlendEnable = TRUE;
+			BlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+			BlendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_ONE;
+			BlendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+			break;
+		}
+
+		ID3D11BlendState* BlendState = nullptr;
+		HRESULT Hr = Device->CreateBlendState(&BlendDesc, &BlendState);
+		if (FAILED(Hr))
+		{
+			return nullptr;
+		}
+
+		BlendStates[static_cast<int>(BlendMode)] = BlendState;
+
+		return BlendState;
+	}
+
+private:
+	friend class URenderer;
+
+	ID3D11BlendState* BlendStates[static_cast<int>(ERenderBlendMode::Count)];
+};
+
 struct FRenderTarget2D
 {
 	Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture;
@@ -371,6 +434,7 @@ private:
 
 	FSamplerStatePool SamplerStatePool;
 	FDepthStencilStatePool DepthStencilStatePool;
+	FBlendStatePool BlendStatePool;
 
     ID3D11Texture2D* FrameBuffer = nullptr;
     ID3D11RenderTargetView* FrameBufferRTV = nullptr;

@@ -5,17 +5,19 @@
 #include <wrl/client.h>
 #include "Core.h"
 #include "TArray.h"
+#include "RenderInfo.h"
 #include "enum.h"
 #include <initializer_list>
 
 class URenderer;
 class FSamplerStatePool;
 class FDepthStencilStatePool;
+class FBlendStatePool;
 
 class FRenderPipeline
 {
 public:
-	FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool, FDepthStencilStatePool* InDepthStencilStatePool);
+	FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool, FDepthStencilStatePool* InDepthStencilStatePool, FBlendStatePool* InBlendStatePool);
 	~FRenderPipeline();
 
 	void Release();
@@ -24,7 +26,7 @@ public:
 	void SetRasterRizerState(D3D11_CULL_MODE CullMode, int32 DepthBias = 0, std::initializer_list<EViewModeIndex> ViewModes = { EViewModeIndex::VMI_Lit });
 	ID3D11RasterizerState* GetRasterizerState(EViewModeIndex ViewMode) const;
 	void SetDepthStencilState(bool bEnableDepthTest, bool bEnableDepthWrite);
-	void SetBlendState(const D3D11_BLEND_DESC& BlendDesc);
+	void SetBlendState(ERenderBlendMode BlendMode);
 	void SetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY Topology);
 	void SetShader(const FString& ShaderPath);
 	
@@ -78,6 +80,7 @@ private:
 	D3D11_PRIMITIVE_TOPOLOGY PrimitiveTopology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	FSamplerStatePool* SamplerStatePool = nullptr;
 	FDepthStencilStatePool* DepthStencilStatePool = nullptr;
+	FBlendStatePool* BlendStatePool = nullptr;
 	static constexpr int32 ViewModeCount = static_cast<int32>(EViewModeIndex::VMI_Max);
 	ID3D11RasterizerState* RasterizerStates[ViewModeCount] = {};
 	ID3D11DepthStencilState* DepthStencilState = nullptr;

@@ -9,6 +9,15 @@
 class FCamera;
 class UPrimitiveComponent;
 
+enum class ERenderBlendMode
+{
+	Opaque,
+	Masked,
+	Transparent,
+	Additive,
+	Count
+};
+
 struct FRenderInfo
 {
 	TSharedPtr<FStaticMeshAsset> StaticMesh;
@@ -25,6 +34,7 @@ struct FRenderQuadInfo
 	FVector4 Color = { 1.f, 1.f, 1.f, 1.f };
 	Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> TextureSRV;
 	FVector4 SubUV = { 0.f, 0.f, 1.f, 1.f };
+	ERenderBlendMode BlendMode = ERenderBlendMode::Opaque;
 	bool EnableDepthTest = true;
 	bool EnableDepthWrite = true;
 };

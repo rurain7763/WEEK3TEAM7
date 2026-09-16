@@ -4,12 +4,14 @@
 #include "Renderer.h"
 #include "TMap.h"
 
-FRenderPipeline::FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool, FDepthStencilStatePool* InDepthStencilStatePool)
+FRenderPipeline::FRenderPipeline(ID3D11Device* InDevice, ID3D11DeviceContext* InDeviceContext, FSamplerStatePool* InSamplerStatePool, FDepthStencilStatePool* InDepthStencilStatePool, FBlendStatePool* InBlendStatePool)
 	: Device(InDevice)
 	, DeviceContext(InDeviceContext)
 	, SamplerStatePool(InSamplerStatePool)
 	, DepthStencilStatePool(InDepthStencilStatePool)
+	, BlendStatePool(InBlendStatePool)
 {
+	BlendState = InBlendStatePool->GetOrCreateBlendState(Device, ERenderBlendMode::Opaque);
 }
 
 FRenderPipeline::~FRenderPipeline()
@@ -26,12 +28,6 @@ void FRenderPipeline::Release()
 			RasterizerStates[Index]->Release();
 			RasterizerStates[Index] = nullptr;
 		}
-	}
-
-	if (BlendState)
-	{
-		BlendState->Release();
-		BlendState = nullptr;
 	}
 
 	if (VertexShader)
@@ -133,15 +129,9 @@ void FRenderPipeline::SetDepthStencilState(bool bEnableDepthTest, bool bEnableDe
 	DepthStencilState = DepthStencilStatePool->GetOrCreateDepthStencilState(Device, Key);
 }
 
-void FRenderPipeline::SetBlendState(const D3D11_BLEND_DESC& BlendDesc)
+void FRenderPipeline::SetBlendState(ERenderBlendMode BlendMode)
 {
-	if (BlendState)
-	{
-		BlendState->Release();
-		BlendState = nullptr;
-	}
-
-	Device->CreateBlendState(&BlendDesc, &BlendState);
+	BlendState = BlendStatePool->GetOrCreateBlendState(Device, BlendMode);
 }
 
 void FRenderPipeline::SetShader(const FString& ShaderPath)
