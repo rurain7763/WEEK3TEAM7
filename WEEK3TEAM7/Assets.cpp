@@ -116,18 +116,16 @@ void FFontAssetLoader::UnloadAsset(TSharedPtr<FAsset> Asset)
 	// Nothing to do for now
 }
 
-FFontAtlasAsset::FFontAtlasAsset(const FName& InAssetName, URenderer& InRenderer, TSharedPtr<FFontAsset>& InFontAsset, uint32 InWidth, uint32 InHeight, uint32 InPaddingW, uint32 InPaddingH)
-	: FAsset(InAssetName, EAssetType::FontAtlas)
+FAtlasAsset::FAtlasAsset(const FName& InAssetName, EAssetType InAssetType, URenderer& InRenderer, uint32 InWidth, uint32 InHeight, DXGI_FORMAT InFormat)
+	: FTexture2DAsset(InAssetName, InAssetType, nullptr, nullptr)
 	, Renderer(InRenderer)
-	, FontAsset(InFontAsset)
-	, FontAtlas(MakeShared<FFontAtlas>(InFontAsset->GetFace(), InWidth, InHeight, InPaddingW, InPaddingH))
 {
 	D3D11_TEXTURE2D_DESC TextureDesc = {};
 	TextureDesc.Width = InWidth;
 	TextureDesc.Height = InHeight;
 	TextureDesc.MipLevels = 1;
 	TextureDesc.ArraySize = 1;
-	TextureDesc.Format = DXGI_FORMAT_R8_UNORM; // 그레이스케일 텍스처
+	TextureDesc.Format = InFormat;
 	TextureDesc.SampleDesc.Count = 1;
 	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
 	TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
@@ -144,22 +142,109 @@ FFontAtlasAsset::FFontAtlasAsset(const FName& InAssetName, URenderer& InRenderer
 
 	SRV = Renderer.CreateShaderResourceView(Texture, &SRVDesc);
 
+	Width = InWidth;
+	Height = InHeight;
+	Format = InFormat;
+}
+
+FAtlasAsset::FAtlasAsset(const FName& InAssetName, EAssetType InAssetType, URenderer& InRenderer, Microsoft::WRL::ComPtr<ID3D11Texture2D> InTexture, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> InSRV)
+	: FTexture2DAsset(InAssetName, InAssetType, InTexture, InSRV)
+	, Renderer(InRenderer)
+{
+}
+
+void FAtlasAsset::UpdateRegion(uint32 Left, uint32 Top, uint32 Right, uint32 Bottom, const void* Data, uint32 RowPitch)
+{
+	if (!Texture || !Data)
+	{
+		return;
+	}
+
+	if (Right <= Left || Bottom <= Top)
+	{
+		return;
+	}
+
+	D3D11_BOX DestBox = {};
+	DestBox.left = Left;
+	DestBox.top = Top;
+	DestBox.right = Right;
+	DestBox.bottom = Bottom;
+	DestBox.front = 0;
+	DestBox.back = 1;
+
+	Renderer.GetDeviceContext()->UpdateSubresource(Texture.Get(), 0, &DestBox, Data, RowPitch, 0);
+}
+
+FFontAtlasAsset::FFontAtlasAsset(const FName& InAssetName, URenderer& InRenderer, TSharedPtr<FFontAsset>& InFontAsset, uint32 InWidth, uint32 InHeight, uint32 InPaddingW, uint32 InPaddingH)
+	: FAtlasAsset(InAssetName, EAssetType::FontAtlas, InRenderer, InWidth, InHeight, DXGI_FORMAT_R8_UNORM)
+	, FontAsset(InFontAsset)
+	, FontAtlas(MakeShared<FFontAtlas>(InFontAsset->GetFace(), InWidth, InHeight, InPaddingW, InPaddingH))
+{
 	FontAtlas->SetAtlasHandler(*this);
 }
 
 bool FFontAtlasAsset::HandleAddGlyph(FFontAtlas& FontAtlas, const FFontGlyph& InGlyph, const FFontGlyphBitmap& InBitmap)
 {
-	D3D11_BOX DestBox = {};
-	DestBox.left = InBitmap.Left;
-	DestBox.top = InBitmap.Top;
-	DestBox.right = InBitmap.Right;
-	DestBox.bottom = InBitmap.Bottom;
-	DestBox.front = 0;
-	DestBox.back = 1;
-	
-	UINT RowPitch = InBitmap.Pitch;
-	Renderer.GetDeviceContext()->UpdateSubresource(Texture.Get(), 0, &DestBox, InBitmap.Buffer, RowPitch, 0);
+	UpdateRegion(InBitmap.Left, InBitmap.Top, InBitmap.Right, InBitmap.Bottom, InBitmap.Buffer, static_cast<uint32>(InBitmap.Pitch));
 
 	return true;
 }
 
+FSpriteAtlasAsset::FSpriteAtlasAsset(const FName& InAssetName, URenderer& InRenderer, const TSharedPtr<FTexture2DAsset>& InSource, uint32 InCols, uint32 InRows, uint32 InFrameCount)
+	: FAtlasAsset(InAssetName, EAssetType::SpriteAtlas, InRenderer,
+		InSource ? InSource->GetTexture() : Microsoft::WRL::ComPtr<ID3D11Texture2D>(),
+		InSource ? InSource->GetSRV() : Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>())
+{
+	if (!InSource)
+	{
+		UE_LOG_ERROR("Sprite atlas '%s' has no source texture", InAssetName.ToString().CStr());
+		return;
+	}
+
+	if (InCols == 0 || InRows == 0)
+	{
+		UE_LOG_ERROR("Sprite atlas '%s' has zero columns or rows", InAssetName.ToString().CStr());
+		return;
+	}
+
+	const uint32 CellCount = InCols * InRows;
+	const uint32 FrameCount = (InFrameCount == 0) ? CellCount : FPlatformMath::Min(InFrameCount, CellCount);
+
+	const float FrameW = 1.0f / static_cast<float>(InCols);
+	const float FrameH = 1.0f / static_cast<float>(InRows);
+
+	FrameSubUVs.Reserve(FrameCount);
+	for (uint32 i = 0; i < FrameCount; ++i)
+	{
+		const uint32 Col = i % InCols;
+		const uint32 Row = i / InCols;
+
+		FrameSubUVs.Add(FVector4(Col * FrameW, Row * FrameH, FrameW, FrameH));
+	}
+}
+
+FSpriteAtlasAsset::FSpriteAtlasAsset(const FName& InAssetName, URenderer& InRenderer, const TSharedPtr<FTexture2DAsset>& InSource, const TArray<FVector4>& InFrameSubUVs)
+	: FAtlasAsset(InAssetName, EAssetType::SpriteAtlas, InRenderer,
+		InSource ? InSource->GetTexture() : Microsoft::WRL::ComPtr<ID3D11Texture2D>(),
+		InSource ? InSource->GetSRV() : Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>())
+	, FrameSubUVs(InFrameSubUVs)
+{
+}
+
+const FVector4& FSpriteAtlasAsset::GetFrameSubUV(int32 FrameIndex) const
+{
+	static const FVector4 WholeTexture(0.f, 0.f, 1.f, 1.f);
+
+	if (FrameSubUVs.IsEmpty())
+	{
+		return WholeTexture;
+	}
+
+	if (FrameIndex < 0 || FrameIndex >= FrameSubUVs.Num())
+	{
+		return FrameSubUVs[0];
+	}
+
+	return FrameSubUVs[static_cast<uint32>(FrameIndex)];
+}

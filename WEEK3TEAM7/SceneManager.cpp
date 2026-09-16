@@ -23,6 +23,7 @@
 
 #include "FrameTimer.h"
 #include "CubeComponent.h"
+#include "UAtlasAnimationComponent.h"
 #include "ActorComponent.h"
 #include "WindowApplication.h"
 
@@ -184,7 +185,8 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 		"Triangle", 
 		"GizmoArrow", 
 		"Circle",
-		"SpotLight"
+		"SpotLight",
+		"Explosion"
 	};
 
 	const FClassInfo* ActorClassInfo[] = {
@@ -193,8 +195,11 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 		UPrimitiveComponent::GetClass(),
 		UPrimitiveComponent::GetClass(),
 		UPrimitiveComponent::GetClass(),
-		ASpotLight::GetClass()
+		ASpotLight::GetClass(),
+		UAtlasAnimationComponent::GetClass()
 	};
+
+	static_assert(IM_ARRAYSIZE(ActorTypeNames) == IM_ARRAYSIZE(ActorClassInfo), "ActorTypeNames and ActorClassInfo must stay the same length");
 
 	int32 ActorTypeIndex = static_cast<int32>(mGuiInputField.PrimitiveType);
 	int32 SpawnCount = mGuiInputField.SpawnCount;
@@ -209,7 +214,24 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 			const FClassInfo* ActorClass = ActorClassInfo[ActorTypeIndex];
 
 			AActor* NewActor = nullptr;
-			if (ActorClass->IsChildOf(UPrimitiveComponent::GetClass()))
+			if (ActorClass->IsChildOf(UAtlasAnimationComponent::GetClass()))
+			{
+				NewActor = FObjectFactory::ConstructObject<AActor>();
+
+				TSharedPtr<FSpriteAtlasAsset> ExplosionAtlas = FAssetManager::Get().GetAssetAs<FSpriteAtlasAsset>(FName("ExplosionSpriteAtlas"));
+
+				UAtlasAnimationComponent* AnimComponent = FObjectFactory::ConstructObject<UAtlasAnimationComponent>(EPrimitive::EP_Plane, ExplosionAtlas);
+				AnimComponent->SetRelativeLocation(FVector(0, 0, 0));
+				AnimComponent->SetRelativeRotation(FRotator(0, 0, 0));
+				AnimComponent->SetRelativeScale3D(FVector(1, 1, 1));
+				AnimComponent->SetBillboardCamera(guiReference.ViewportClient->GetCamera());
+				AnimComponent->SetBillboard(true);
+				AnimComponent->SetDepthState(true, false);
+				AnimComponent->Play();
+
+				NewActor->AddRootSceneComponent(AnimComponent);
+			}
+			else if (ActorClass->IsChildOf(UPrimitiveComponent::GetClass()))
 			{
 				NewActor = FObjectFactory::SpawnPrimitiveActor(
 					mGuiInputField.PrimitiveType,

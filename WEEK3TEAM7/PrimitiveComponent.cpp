@@ -98,6 +98,7 @@ void UPrimitiveComponent::Initialize(EPrimitive ePrimitive, FVector location, FR
 		case EPrimitive::EP_Triangle:	MeshAssetName = "TriangleMesh"; break;
 		case EPrimitive::EP_GizmoArrow:	MeshAssetName = "GizmoArrowMesh"; break;
 		case EPrimitive::EP_Circle:		MeshAssetName = "CircleMesh"; break;
+		case EPrimitive::EP_Plane:		MeshAssetName = "PlaneMesh"; break;
 	}
 
 	mMeshAsset = FAssetManager::Get().GetAssetAs<FStaticMeshAsset>(MeshAssetName);

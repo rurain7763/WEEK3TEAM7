@@ -42,6 +42,8 @@ public:
 		QuadInfo.Model = PivotTransform.MakeMatrix();
 		QuadInfo.Color = FVector4(1.f, 1.f, 1.f, 1.f);
 		QuadInfo.TextureSRV = mTextureAsset ? mTextureAsset->GetSRV() : nullptr;
+		QuadInfo.SubUV = mSubUV;
+		QuadInfo.BlendMode = mBlendMode;
 		QuadInfo.EnableDepthTest = mEnableDepthTest;
 		QuadInfo.EnableDepthWrite = mEnableDepthWrite;
 
@@ -51,6 +53,11 @@ public:
 	inline void SetBillboardCamera(FCamera& camera) { mBillboardCamera = &camera; }
 	inline void SetBillboard(bool billboard) { mbBillboard = billboard; }
 	inline void SetDepthState(bool enableDepthTest, bool enableDepthWrite) { mEnableDepthTest = enableDepthTest; mEnableDepthWrite = enableDepthWrite; }
+	void SetBlendState(ERenderBlendMode InBlendMode) { mBlendMode = InBlendMode; }
+
+protected:
+	FVector4 mSubUV = { 0.f, 0.f, 1.f, 1.f };
+	ERenderBlendMode mBlendMode = ERenderBlendMode::Opaque;
 
 private:
 	FCamera* mBillboardCamera = nullptr;

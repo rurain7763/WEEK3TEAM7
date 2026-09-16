@@ -8,7 +8,8 @@ enum class EAssetType
 	StaticMesh,
 	Texture2D,
 	Font,
-	FontAtlas
+	FontAtlas,
+	SpriteAtlas
 };
 
 class FAsset

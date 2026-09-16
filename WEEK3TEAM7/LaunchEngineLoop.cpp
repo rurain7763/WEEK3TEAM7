@@ -133,6 +133,13 @@ void FEngineLoop::InitAssetManager()
 	TSharedPtr<FFileAssetSource> SpotLightIconAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Textures/Icon_SpotLight.png");
 	mAssetManager->RegisterAsset(FName("SpotLightIcon"), TextureLoader, SpotLightIconAssetSource);
 
+	TSharedPtr<FFileAssetSource> ExplosionTextureSource = MakeShared<FFileAssetSource>(*mFileManager, "Textures/ExplosionAtlas.png");
+	mAssetManager->RegisterAsset(FName("ExplosionTexture"), TextureLoader, ExplosionTextureSource);
+
+	TSharedPtr<FTexture2DAsset> ExplosionTexture2DAsset = mAssetManager->GetAssetAs<FTexture2DAsset>("ExplosionTexture", true);
+	TSharedPtr<FSpriteAtlasAsset> ExplosionSpriteAtlasAsset = MakeShared<FSpriteAtlasAsset>(FName("ExplosionSpriteAtlas"), *renderer, ExplosionTexture2DAsset, 6, 6);
+	mAssetManager->RegisterAsset(ExplosionSpriteAtlasAsset);
+
 	TSharedPtr<FFileAssetSource> FontAssetSource = MakeShared<FFileAssetSource>(*mFileManager, "Fonts/BMKkubulimTTF.ttf");
 	mAssetManager->RegisterAsset(FName("TestFont"), FontLoader, FontAssetSource);
 	
