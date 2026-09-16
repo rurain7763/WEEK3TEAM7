@@ -505,10 +505,6 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(itemWidth);
 	ImGui::DragFloat("##CamRotZ", &camera.Transform.Rotation.Yaw, 0.1f, 180.0f);
-	//ImGui::Checkbox("Depth Test", &renderer->bDepthTestEnabled);
-	//ImGui::TextUnformatted(renderer->bDepthTestEnabled
-	//	? "ON : orange (near) stays in front"
-	//	: "OFF: blue (far, drawn last) overwrites");
 
 	/* Memory Info */
 	ImGui::SeparatorText("Memory Info");
@@ -597,8 +593,149 @@ void FSceneManager::updatePropertyWindowGUI(const FGuiReference& guiReference)
 			mSelectedActor->SetScale(scaleInput);
 		}
 
+		UText3DComponent* text3DComponent = nullptr;
+		for (UActorComponent* component : mSelectedActor->GetComponents())
+		{
+			if (component->IsA<UText3DComponent>())
+			{
+				text3DComponent = component->Cast<UText3DComponent>();
+				break;
+			}
+		}
+
+		if (text3DComponent)
+		{
+			ImGui::SeparatorText("Text");
+
+			char textBuffer[256] = {};
+			const FString currentText = Wide2Utf(text3DComponent->GetText());
+			strncpy_s(textBuffer, currentText.CStr(), sizeof(textBuffer) - 1);
+
+			if (ImGui::InputText("Display Text", textBuffer, sizeof(textBuffer)))
+			{
+				try
+				{
+					text3DComponent->SetText(Utf2Wide(FString(textBuffer)));
+				}
+				catch (const std::runtime_error&)
+				{
+				}
+			}
+		}
+
+		USpotLightComponent* spotLightComponent = nullptr;
+		for (UActorComponent* component : mSelectedActor->GetComponents())
+		{
+			if (component->IsA<USpotLightComponent>())
+			{
+				spotLightComponent = component->Cast<USpotLightComponent>();
+				break;
+			}
+		}
+
+		if (spotLightComponent)
+		{
+			ImGui::SeparatorText("Spot Light");
+
+			FVector4 colorInput = spotLightComponent->GetColor();
+			if (ImGui::ColorPicker3("Color", &colorInput.x,
+				ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_DisplayHSV | ImGuiColorEditFlags_DisplayHex))
+			{
+				spotLightComponent->SetColor(colorInput);
+			}
+
+			float innerAngleInput = spotLightComponent->GetInnerConeAngle();
+			if (ImGui::DragFloat("InnerAngle", &innerAngleInput, 0.1f, 0.f, spotLightComponent->GetOuterConeAngle(), "%.3f", ImGuiSliderFlags_AlwaysClamp))
+			{
+				spotLightComponent->SetInnerConeAngle(innerAngleInput);
+			}
+
+			float outerAngleInput = spotLightComponent->GetOuterConeAngle();
+			if (ImGui::DragFloat("OuterAngle", &outerAngleInput, 0.1f, 0.f, 89.f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+			{
+				spotLightComponent->SetOuterConeAngle(outerAngleInput);
+			}
+		}
+
+		UAtlasAnimationComponent* atlasAnimationComponent = nullptr;
+		for (UActorComponent* component : mSelectedActor->GetComponents())
+		{
+			if (component->IsA<UAtlasAnimationComponent>())
+			{
+				atlasAnimationComponent = component->Cast<UAtlasAnimationComponent>();
+				break;
+			}
+		}
+
+		if (atlasAnimationComponent)
+		{
+			ImGui::SeparatorText("Atlas Animation");
+
+			TArray<FString> spriteAtlasAssetNames;
+			guiReference.AssetManager->ForEachMetaInfo([&spriteAtlasAssetNames](const FAssetMetaInfo& metaInfo) {
+				if (metaInfo.AssetType != EAssetType::SpriteAtlas)
+				{
+					return;
+				}
+				spriteAtlasAssetNames.Add(metaInfo.AssetName.ToString());
+			});
+
+			const TSharedPtr<FSpriteAtlasAsset>& currentAtlas = atlasAnimationComponent->GetAtlas();
+			FString currentAtlasName = currentAtlas ? currentAtlas->GetAssetName().ToString() : "None";
+			if (ImGui::BeginCombo("Sprite Atlas", currentAtlasName.CStr()))
+			{
+				for (const FString& assetName : spriteAtlasAssetNames)
+				{
+					bool isSelected = (currentAtlasName == assetName);
+					if (ImGui::Selectable(assetName.CStr(), isSelected))
+					{
+						atlasAnimationComponent->SetAtlas(guiReference.AssetManager->GetAssetAs<FSpriteAtlasAsset>(FName(assetName), true));
+					}
+					if (isSelected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
+
+			if (ImGui::Button("Play"))
+			{
+				atlasAnimationComponent->Play(0, atlasAnimationComponent->IsLooping(), atlasAnimationComponent->IsBackward());
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Pause"))
+			{
+				atlasAnimationComponent->Pause();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Resume"))
+			{
+				atlasAnimationComponent->Resume();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Reset"))
+			{
+				atlasAnimationComponent->Reset();
+			}
+
+			ImGui::Text(atlasAnimationComponent->IsPlaying() ? "State: Playing" : "State: Stopped");
+
+			bool loopInput = atlasAnimationComponent->IsLooping();
+			if (ImGui::Checkbox("bLoop", &loopInput))
+			{
+				atlasAnimationComponent->SetLooping(loopInput);
+			}
+
+			int32 frameRateInput = atlasAnimationComponent->GetFrameRate();
+			if (ImGui::DragInt("FrameRate", &frameRateInput, 1.f, 1, 240, "%d", ImGuiSliderFlags_AlwaysClamp))
+			{
+				atlasAnimationComponent->SetFrameRate(frameRateInput);
+			}
+		}
+
 		USceneComponent* rootComponent = mSelectedActor->GetRootComponent();
-		if (rootComponent->IsA<UPrimitiveComponent>())
+		if (rootComponent && rootComponent->IsA<UPrimitiveComponent>() && !rootComponent->IsA<UAtlasAnimationComponent>())
 		{
 			UPrimitiveComponent* primitiveComponent = rootComponent->Cast<UPrimitiveComponent>();
 

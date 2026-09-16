@@ -233,7 +233,7 @@ void FEditorViewportClient::DeprojectScreenToWorldForUnified(
 		ScreenW / ScreenH, mCamera.mFovDegree, orthoDistance, NearZ, FarZ, perspectiveRatio
 	);
 
-	const FMatrix invViewProj = invProjection * mCamera.GetViewMatrix().Inverse();
+	const FMatrix invViewProj = invProjection * mCamera.GetViewMatrix().AffineInverse();
 
 	const auto Unproject = [&](float ndcZ) -> FVector
 		{

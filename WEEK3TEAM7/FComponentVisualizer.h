@@ -78,10 +78,12 @@ public:
 			}
 		};
 
-		DrawCone(OuterAngle, FVector4(1.f, 1.f, 1.f, 1.f));
+		const FVector4 ConeColor = SpotLightComponent->GetColor();
+
+		DrawCone(OuterAngle, ConeColor);
 		if (InnerAngle > 0.f && InnerAngle < OuterAngle)
 		{
-			DrawCone(InnerAngle, FVector4(1.f, 1.f, 1.f, 1.f));
+			DrawCone(InnerAngle, ConeColor);
 		}
 	}
 };

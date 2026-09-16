@@ -185,9 +185,38 @@ inline std::wstring Utf2Wide(const FString& str)
 	{
 		throw std::runtime_error("Failed to convert UTF-8 string to wide string.");
 	}
+
+	Result.resize(Size - 1);
 #else
-	std::wstring Result(Size, L'\0');
+	std::wstring Result;
 #endif
 
 	return Result;
+}
+
+inline FString Wide2Utf(const std::wstring& str)
+{
+#if _WIN32
+	if (str.empty())
+	{
+		return FString("");
+	}
+
+	const int32 Length = static_cast<int32>(str.size());
+	int32 Size = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), Length, nullptr, 0, nullptr, nullptr);
+	if (Size == 0)
+	{
+		return FString("");
+	}
+
+	std::string Result(Size, '\0');
+	if (WideCharToMultiByte(CP_UTF8, 0, str.c_str(), Length, Result.data(), Size, nullptr, nullptr) == 0)
+	{
+		return FString("");
+	}
+
+	return FString(Result);
+#else
+	return FString("");
+#endif
 }
