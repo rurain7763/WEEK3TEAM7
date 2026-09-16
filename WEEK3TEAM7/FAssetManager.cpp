@@ -31,6 +31,13 @@ void FAssetManager::RegisterAsset(const TSharedPtr<FAsset>& Asset)
 		return;
 	}
 
+	FAssetMetaInfo metaInfo;
+	metaInfo.AssetType = Asset->GetAssetType();
+	metaInfo.AssetName = AssetName;
+	metaInfo.AssetLoader = nullptr;
+	metaInfo.AssetSource = nullptr;
+
+	AssetMetaInfoMap.Add(AssetName, metaInfo);
 	LoadedAssets.Add(AssetName, Asset);
 }
 
@@ -70,6 +77,11 @@ TSharedPtr<FAsset> FAssetManager::LoadAsset(const FName& AssetName)
 	}
 
 	const FAssetMetaInfo& metaInfo = AssetMetaInfoMap[AssetName];
+	if (!metaInfo.AssetLoader || !metaInfo.AssetSource)
+	{
+		return nullptr;
+	}
+
 	TSharedPtr<FAsset> asset = metaInfo.AssetLoader->LoadAsset(AssetName, *metaInfo.AssetSource);
 	if (asset)
 	{

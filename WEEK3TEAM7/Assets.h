@@ -149,25 +149,16 @@ private:
 	FFontManager& FontManager;
 };
 
-class FAtlasAsset : public FTexture2DAsset
-{
-protected:
-	FAtlasAsset(const FName& InAssetName, EAssetType InAssetType, URenderer& InRenderer, uint32 InWidth, uint32 InHeight, DXGI_FORMAT InFormat);
-	FAtlasAsset(const FName& InAssetName, EAssetType InAssetType, URenderer& InRenderer, Microsoft::WRL::ComPtr<ID3D11Texture2D> InTexture, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> InSRV);
-
-	void UpdateRegion(uint32 Left, uint32 Top, uint32 Right, uint32 Bottom, const void* Data, uint32 RowPitch);
-
-protected:
-	URenderer& Renderer;
-};
-
-class FFontAtlasAsset : public FAtlasAsset, private FFontAtlasHandler
+class FFontAtlasAsset : public FTexture2DAsset, private FFontAtlasHandler
 {
 public:
 	FFontAtlasAsset(const FName& InAssetName, URenderer& InRenderer, TSharedPtr<FFontAsset>& InFontAsset, uint32 InWidth, uint32 InHeight, uint32 InPaddingW, uint32 InPaddingH);
 
 	inline TSharedPtr<FFontAtlas> GetFontAtlas() const { return FontAtlas; }
+	void UpdateRegion(uint32 Left, uint32 Top, uint32 Right, uint32 Bottom, const void* Data, uint32 RowPitch);
 
+protected:
+	URenderer& Renderer;
 private:
 	bool HandleAddGlyph(FFontAtlas& FontAtlas, const FFontGlyph& InGlyph, const FFontGlyphBitmap& InBitmap) override;
 
@@ -177,7 +168,7 @@ private:
 };
 
 //Texture2DAsset을 받아 UV를 계산 후 저장하는 에셋
-class FSpriteAtlasAsset : public FAtlasAsset
+class FSpriteAtlasAsset : public FTexture2DAsset
 {
 public:
 	//Cols. Rows : 아틀라스 텍스쳐에 들어가있는 스프라이트 col x row
@@ -189,6 +180,8 @@ public:
 	inline int32 GetFrameCount() const { return FrameSubUVs.Num(); }
 	const FVector4& GetFrameSubUV(int32 FrameIndex) const;
 
+protected:
+	URenderer& Renderer;
 private:
 	TArray<FVector4> FrameSubUVs;
 };

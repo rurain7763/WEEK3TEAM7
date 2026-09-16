@@ -94,6 +94,9 @@ private:
 	FGuiInputField mGuiInputField;
 
 	void updateControlPanelGUI(const FGuiReference& guiReference);
+
+	//TODO: PropertyWindow에 표시하는 정보를 다루는 구조체 및 시스템이 후에 필요하다.
+	//지금은 하드코딩
 	void updatePropertyWindowGUI(const FGuiReference& guiReference);
 	void updateObjectListPanelGUI(const FGuiReference& guiReference);
 };

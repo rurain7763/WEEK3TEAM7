@@ -9,12 +9,20 @@ void UAtlasAnimationComponent::Initialize(EPrimitive PrimitiveType, const TShare
 {
 	UPrimitiveComponent::Initialize(PrimitiveType);
 
-	//PrimitiveComponent의 Texture2DAsset 포인터로는 GetFrameUV에 접근할 수 없으니 따로 저장한다.
-	SetTexture(textureAsset);
-	Asset = textureAsset;
+	SetAtlas(textureAsset);
 
 	//기본 블랜드 모드는 Additive
 	mBlendMode = ERenderBlendMode::Additive;
+}
+
+void UAtlasAnimationComponent::SetAtlas(const TSharedPtr<FSpriteAtlasAsset>& InAtlas)
+{
+	Asset = InAtlas;
+	SetTexture(InAtlas);
+
+	Frame = 0;
+	FrameAccumulator = 0.f;
+	mSubUV = InAtlas ? InAtlas->GetFrameSubUV(0) : FVector4(0.f, 0.f, 1.f, 1.f);
 }
 
 void UAtlasAnimationComponent::Play(int32 StartFrame, bool bIsLooping, bool bBackwardAnimate)
@@ -37,9 +45,10 @@ void UAtlasAnimationComponent::Resume()
 
 void UAtlasAnimationComponent::Reset()
 {
-	bPlaying = false;
 	Frame = 0;
-	mSubUV = { 0.f, 0.f, 1.f, 1.f };
+	mSubUV = Asset->GetFrameSubUV(0);
+	FrameAccumulator = 0.f;
+	Pause();
 }
 
 void UAtlasAnimationComponent::Tick(float deltaTime)
