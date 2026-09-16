@@ -353,8 +353,7 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 				FCamera& Camera =
 					guiReference.ViewportClient->GetCamera();
 
-				for (AActor* Actor :
-					mCurrentWorld->GetActors())
+				for (AActor* Actor : mCurrentWorld->GetActors())
 				{
 					if (ASpotLight* SpotLight =
 						Actor->Cast<ASpotLight>())
@@ -369,7 +368,30 @@ void FSceneManager::updateControlPanelGUI(const FGuiReference& guiReference)
 						{
 							Atlas->RestoreRuntimeCamera(Camera);
 						}
+
+
+						if (UText3DComponent* Text = Component->Cast<UText3DComponent>())
+						{
+							Text->RestoreRuntimeResources(Camera);
+
+							// 기존 씬 파일에는 mText가 저장되지 않았으므로
+							// 빈 텍스트라면 UUID 문구를 재생성한다.
+							if (Text->GetText().empty())
+							{
+								Text->SetText(
+									Utf2Wide(
+										FString(
+											std::format("UUID: {}", Actor->UUID)
+										)
+									)
+								);
+							}
+						}
 					}
+
+					
+
+
 				}
 
 				UE_LOG(

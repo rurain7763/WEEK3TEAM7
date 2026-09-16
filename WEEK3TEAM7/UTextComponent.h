@@ -141,6 +141,8 @@ public:
 			}
 
 			// SetTexture는 필요 없음
+
+			PlaneComponent->SetBlendState(ERenderBlendMode::Transparent);
 			PlaneComponent->SetBillboard(true);
 			PlaneComponent->SetDepthState(true, false);
 		}
@@ -171,6 +173,52 @@ class UText3DComponent : public USceneComponent
 
 public:
 	UText3DComponent() = default;
+
+	void SerializeClass(json::JSON& outJson) const override
+	{
+		Super::SerializeClass(outJson);
+
+		// std::wstring을 UTF-8 문자열로 변환하여 저장
+		outJson["Properties"]["mText"] =
+			Wide2Utf(mText).CStr();
+	}
+
+	void DeserializeClass(const json::JSON& inJson) override
+	{
+		Super::DeserializeClass(inJson);
+
+		const json::JSON& propertiesJson =
+			inJson.at("Properties");
+
+		// 이전 버전 씬 파일과의 호환성을 위해 필수가 아닌 값으로 처리
+		if (propertiesJson.hasKey("mText") &&
+			propertiesJson.at("mText").JSONType() ==
+			json::JSON::Class::String)
+		{
+			mText = Utf2Wide(
+				FString(propertiesJson.at("mText").ToString())
+			);
+		}
+		else
+		{
+			mText.clear();
+		}
+	}
+
+	void RestoreRuntimeResources(FCamera& camera)
+	{
+		SetBillboardCamera(camera);
+		SetBillboard(true);
+
+		SetFontAtlasAsset(
+			FAssetManager::Get().GetAssetAs<FFontAtlasAsset>(
+				FName("TestFontAtlas"),
+				true
+			)
+		);
+
+		SetDepthState(false, false);
+	}
 
 	void Tick(float DeltaTime) override
 	{
